@@ -56,7 +56,7 @@ const PRODUCTS = [
     price: 52.90, old: 69.90, stock: "In stock", best: false
   },
   {
-    id: "flt-110", cat: "Filters & Oils", art: "🫗", discount: 25,
+    id: "flt-110", cat: "Filters & Oils", art: "🛢️", discount: 25,
     name: "Full synthetic 5W-30 engine oil (4L)",
     desc: "Full synthetic oil that protects the engine hot and cold, and reduces fuel consumption and evaporation.",
     price: 29.90, old: 39.90, stock: "In stock", best: true
@@ -121,7 +121,7 @@ function productCard(p) {
   card.innerHTML = `
     <div class="product-art" role="button" tabindex="0" aria-label="Quick view">
       ${p.discount ? `<span class="discount-badge">-${p.discount}%</span>` : ""}
-      ${p.art}
+      ${p.image ? `<img src="${p.image}" alt="${p.name}" loading="lazy" />` : (p.art || "📦")}
     </div>
     <span class="product-cat">${p.cat}</span>
     <h3>${p.name}</h3>
@@ -175,13 +175,193 @@ function renderGrids() {
   bestGrid.replaceChildren(...best.map((p) => productCard(p)));
 }
 
+/* ---------- Hero slider ---------- */
+const SLIDES_KEY = "lkg_site_slides";
+
+const DEFAULT_SLIDES = [
+  {
+    id: "slide-1", enabled: true, productId: "brk-101", image: "",
+    eyebrow: "Free delivery • New & inspected used parts",
+    title: "Save more, get back on the road faster — every spare part in one place",
+    subtitle: "lakassGo is the marketplace for buying and selling auto spare parts: engines, brakes, filters, oils, tires, batteries and accessories.",
+    ctaText: "Shop today's deals", ctaUrl: "#deals",
+    bg1: "#7c3aed", bg2: "#2563eb",
+  },
+  {
+    id: "slide-2", enabled: true, productId: "tir-104", image: "",
+    eyebrow: "Brakes & suspension",
+    title: "Stopping power you can trust — brakes & tires up to −30%",
+    subtitle: "Ceramic pads, discs and shocks for the most common makes — fitted right, first time.",
+    ctaText: "Shop brakes & tires", ctaUrl: "#deals",
+    bg1: "#0f172a", bg2: "#1d4ed8",
+  },
+  {
+    id: "slide-3", enabled: true, productId: "bat-103", image: "",
+    eyebrow: "Batteries & electrical",
+    title: "Dead battery? Fresh 12V power delivered to your door",
+    subtitle: "Maintenance-free batteries sized to OEM spec, with free fitting advice from our mechanics.",
+    ctaText: "Shop batteries", ctaUrl: "#deals",
+    bg1: "#065f46", bg2: "#22c55e",
+  },
+];
+
+function loadStoreAdminProducts() {
+  try {
+    const raw = localStorage.getItem("lkg_admin_products");
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((p) => ({
+      id: p.id,
+      cat: p.cat || "Parts",
+      art: p.icon || p.art || "",
+      image: (p.photos && p.photos[0]) || p.image || "",
+      name: p.name || "Part",
+      desc: p.desc || "",
+      price: Number(p.price) || 0,
+      old: p.old ? Number(p.old) : 0,
+      discount: p.discount || 0,
+      stock: p.stock || "In stock",
+      best: !!p.best,
+    }));
+  } catch { return []; }
+}
+
+function findAnyProduct(id) {
+  return (
+    PRODUCTS.find((p) => p.id === id) ||
+    loadStoreAdminProducts().find((p) => p.id === id) ||
+    null
+  );
+}
+
+function loadSlides() {
+  try {
+    const raw = localStorage.getItem(SLIDES_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) return arr;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_SLIDES;
+}
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+const slider = {
+  index: 0,
+  count: 0,
+  timer: null,
+};
+
+function paintSlider() {
+  const track = el("slidesTrack");
+  const dots = el("slideDots");
+  if (!track || !slider.count) return;
+  track.style.transform = "translateX(-" + slider.index * 100 + "%)";
+  dots.querySelectorAll(".slider-dot").forEach((d, i) =>
+    d.classList.toggle("active", i === slider.index)
+  );
+}
+
+function goToSlide(i) {
+  if (!slider.count) return;
+  slider.index = (i + slider.count) % slider.count;
+  paintSlider();
+  restartAutoplay();
+}
+
+function restartAutoplay() {
+  clearInterval(slider.timer);
+  slider.timer = setInterval(() => goToSlide(slider.index + 1), 6000);
+}
+
+function initHeroSlider() {
+  const section = el("sliderSection");
+  const track = el("slidesTrack");
+  const dots = el("slideDots");
+  const all = loadSlides().filter((s) => s.enabled !== false);
+  if (!track || !all.length) {
+    if (section) section.hidden = true;
+    return;
+  }
+
+  track.innerHTML = all.map((s) => {
+    const p = findAnyProduct(s.productId);
+    const style =
+      "background: linear-gradient(120deg, " + (s.bg1 || "#7c3aed") + ", " + (s.bg2 || "#2563eb") + ");" +
+      (s.color ? " color: " + s.color + ";" : "");
+    const art = s.image
+      ? `<img src="${esc(s.image)}" alt="${esc(p ? p.name : "")}" />`
+      : (p ? (p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}" />` : (p.art || "📦")) : "📦");
+    const cat = p ? esc(p.cat) : "";
+    const name = p ? esc(p.name) : esc(s.title || "Featured part");
+    const price = p ? "$ " + p.price.toFixed(2) : "";
+    const oldPrice = p && p.old ? `<span class="price-old">$ ${p.old.toFixed(2)}</span>` : "";
+    const pct = p && p.old && p.old > p.price ? Math.round((1 - p.price / p.old) * 100) : (p ? p.discount || 0 : 0);
+    const badge = p && pct > 0 ? `<span class="discount-badge">-${pct}%</span>` : "";
+    return `
+      <div class="slide" style="${style}">
+        <div class="slide-copy">
+          ${s.eyebrow ? `<p class="slide-eyebrow">${esc(s.eyebrow)}</p>` : ""}
+          <h2 class="slide-title">${esc(s.title || "")}</h2>
+          ${s.subtitle ? `<p class="slide-sub">${esc(s.subtitle)}</p>` : ""}
+          ${s.ctaText ? `<a class="slide-cta" href="${esc(s.ctaUrl || "#deals")}">${esc(s.ctaText)} →</a>` : ""}
+        </div>
+        ${p ? `
+        <div class="slide-product">
+          <div class="sp-art">${badge}${art}</div>
+          <p class="sp-cat">${cat}</p>
+          <h3>${name}</h3>
+          <div class="price-row">
+            <span class="price">${price}</span>${oldPrice}
+          </div>
+          <button class="btn btn-primary btn-block slide-add" data-id="${esc(p.id)}">Add to cart</button>
+        </div>` : ""}
+      </div>`;
+  }).join("");
+
+  dots.innerHTML = all.map((_, i) =>
+    `<button class="slider-dot${i === 0 ? " active" : ""}" data-i="${i}" aria-label="Slide ${i + 1}"></button>`
+  ).join("");
+
+  slider.count = all.length;
+  slider.index = 0;
+  track.style.transform = "translateX(0)";
+
+  const box = el("heroSlider");
+  box.addEventListener("mouseenter", () => clearInterval(slider.timer));
+  box.addEventListener("mouseleave", restartAutoplay);
+  el("slidePrev").addEventListener("click", () => goToSlide(slider.index - 1));
+  el("slideNext").addEventListener("click", () => goToSlide(slider.index + 1));
+  dots.addEventListener("click", (e) => {
+    const d = e.target.closest(".slider-dot");
+    if (d) goToSlide(Number(d.dataset.i));
+  });
+
+  let touchX = null;
+  box.addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener("touchend", (e) => {
+    if (touchX == null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 40) goToSlide(slider.index + (dx < 0 ? 1 : -1));
+    touchX = null;
+  }, { passive: true });
+
+  restartAutoplay();
+}
+
 /* ---------- Cart ---------- */
 function addToCart(p) {
   const found = state.cart.find((i) => i.id === p.id);
   if (found) found.qty++;
   else state.cart.push({ ...p, qty: 1 });
   renderCart();
-  showToast("✅ \"" + p.name + "\" added to cart");
+  showToast("✓ \"" + p.name + "\" added to cart");
   cartCount.classList.add("bump");
   setTimeout(() => cartCount.classList.remove("bump"), 200);
 }
@@ -220,7 +400,7 @@ function renderCart() {
     const div = document.createElement("div");
     div.className = "cart-item";
     div.innerHTML = `
-      <div class="cart-item-art">${i.art}</div>
+      <div class="cart-item-art">${i.image ? `<img src="${i.image}" alt="" />` : (i.art || "📦")}</div>
       <div>
         <h4>${i.name}</h4>
         <span class="price">$ ${i.price.toFixed(2)}</span>
@@ -258,7 +438,9 @@ function closeAll() {
 /* ---------- Product modal ---------- */
 function openModal(p) {
   state.modalProduct = p;
-  el("modalArt").textContent = p.art;
+  el("modalArt").innerHTML = p.image
+    ? `<img src="${p.image}" alt="${p.name}" />`
+    : (p.art || "📦");
   el("modalCat").textContent = p.cat;
   el("modalName").textContent = p.name;
   el("modalDesc").textContent = p.desc;
@@ -288,9 +470,16 @@ function init() {
   buildCats();
   renderGrids();
   renderCart();
+  initHeroSlider();
   el("year").textContent = new Date().getFullYear();
 
   document.addEventListener("click", (e) => {
+    const slideAdd = e.target.closest(".slide-add");
+    if (slideAdd) {
+      const p = findAnyProduct(slideAdd.dataset.id);
+      if (p) addToCart(p);
+      return;
+    }
     const chip = e.target.closest(".cat-chip");
     if (chip) {
       document.querySelectorAll(".cat-chip").forEach((c) => c.classList.remove("active"));
