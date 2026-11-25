@@ -429,3 +429,314 @@ function renderCatalogue(root) {
       )}
     </div>`;
 }
+function renderSlider(root) {
+  root.innerHTML = headBlock("Slider", "Homepage hero banners") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Homepage slider</h2><p class="card-sub">Hero banner slides</p></div>
+      <button class="btn btn-primary" id="newSlideBtn">＋ Add slide</button></div>
+      ${table(
+        ["Slide", "Title", "Order", "Visible", "Actions"],
+        `
+          <tr><td class="cell-strong">Slide 1</td><td class="cell-muted">Genuine parts, delivered fast</td><td class="mono">1</td><td>${pill("active", "green")}</td><td><button class="btn btn-ghost" data-act="edit">Edit</button></td></tr>
+          <tr><td class="cell-strong">Slide 2</td><td class="cell-muted">Brakes &amp; suspension up to -40%</td><td class="mono">2</td><td>${pill("active", "green")}</td><td><button class="btn btn-ghost" data-act="edit">Edit</button></td></tr>
+          <tr><td class="cell-strong">Slide 3</td><td class="cell-muted">New: batteries in stock</td><td class="mono">3</td><td>${pill("hidden", "gray")}</td><td><button class="btn btn-ghost" data-act="edit">Edit</button></td></tr>
+        `
+      )}
+    </div>`;
+  el("newSlideBtn").addEventListener("click", () => showToast("Slide editor (demo)"));
+  root.querySelectorAll("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => showToast("Edit slide (demo)"))
+  );
+}
+
+function renderReporting(root) {
+  root.innerHTML = headBlock("Reporting", "Sales reports") + `
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Orders (30d)</div><div class="stat-value">118</div><div class="stat-delta up">↑ 9.2%</div><div class="stat-note">vs 108 previous</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Items sold</div><div class="stat-value">246</div><div class="stat-delta up">↑ 11.7%</div><div class="stat-note">2.1 per order</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Avg order</div><div class="stat-value">$ 29.74</div><div class="stat-delta down">↓ 1.8%</div><div class="stat-note">per checkout</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Refunds</div><div class="stat-value">3</div><div class="stat-note">2.5% of orders</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Sales by category</h2><p class="card-sub">Last 30 days</p></div></div>
+      ${table(
+        ["Category", "Orders", "Revenue"],
+        `
+          <tr><td class="cell-strong">Brakes</td><td class="mono">51</td><td class="mono cell-strong">$ 1,690</td></tr>
+          <tr><td class="cell-strong">Electric</td><td class="mono">38</td><td class="mono cell-strong">$ 1,204</td></tr>
+          <tr><td class="cell-strong">Engine</td><td class="mono">22</td><td class="mono cell-strong">$ 486</td></tr>
+        `
+      )}
+    </div>`;
+}
+
+function renderMarketing(root) {
+  root.innerHTML = headBlock("Marketing", "Promo codes and campaigns") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Promo codes</h2><p class="card-sub">Applied at storefront checkout</p></div>
+      <button class="btn btn-primary" id="newCodeBtn">＋ New code</button></div>
+      ${table(
+        ["Code", "Discount", "Scope", "Used", "State"],
+        `
+          <tr><td class="cell-strong mono">WELCOME10</td><td class="cell-strong">-10%</td><td class="cell-muted">all products</td><td class="mono">23</td><td>${pill("active", "green")}</td></tr>
+          <tr><td class="cell-strong mono">BRAKE15</td><td class="cell-strong">-15%</td><td class="cell-muted">brakes category</td><td class="mono">8</td><td>${pill("active", "green")}</td></tr>
+          <tr><td class="cell-strong mono">SUMMER25</td><td class="cell-strong">-25%</td><td class="cell-muted">all products</td><td class="mono">0</td><td>${pill("scheduled", "amber")}</td></tr>
+          <tr><td class="cell-strong mono">OLD5</td><td class="cell-strong">-5%</td><td class="cell-muted">all products</td><td class="mono">41</td><td>${pill("expired", "gray")}</td></tr>
+        `
+      )}
+    </div>`;
+  el("newCodeBtn").addEventListener("click", () => showToast("Promo code editor (demo)"));
+}
+
+/* ---------- Channels / Google Shopping ---------- */
+function renderChannels(root) {
+  root.innerHTML = headBlock("Channels", "Sales channels") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Connected channels</h2><p class="card-sub">Where your catalog is sold</p></div></div>
+      ${table(
+        ["Channel", "State", "Products", "Notes"],
+        `
+          <tr><td class="cell-strong">🌐 lakassGo storefront</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">primary</td></tr>
+          <tr><td class="cell-strong">facebook.com</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">via catalog feed</td></tr>
+          <tr><td class="cell-strong">instagram.com</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">shop tab</td></tr>
+          <tr><td class="cell-strong">Google Shopping</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">merchant center</td></tr>
+        `
+      )}
+    </div>`;
+}
+
+function renderGshopping(root) {
+  root.innerHTML = headBlock("Google Shopping", "Product feed & Merchant Center") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Merchant Center sync</h2><p class="card-sub">Feed lakassgo.com/data/products.xml</p></div>
+      <button class="btn btn-ghost">↻ Sync now</button></div>
+      ${table(
+        ["Product", "ID", "Price", "Approval"],
+        PRODUCTS.slice(0, 5).map((p, i) => `
+          <tr>
+            <td><strong>${p.name}</strong></td>
+            <td class="mono cell-muted">LKG-${100 + i}</td>
+            <td class="mono cell-strong">${money(p.price)}</td>
+            <td>${pill(p.stock ? "approved" : "disapproved — no stock", p.stock ? "green" : "red")}</td>
+          </tr>`).join("")
+      )}
+    </div>
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Approved items</div><div class="stat-value">13</div><div class="stat-note">of 14 submitted</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Impressions (7d)</div><div class="stat-value">24,318</div><div class="stat-delta up">↑ 31%</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Clicks (7d)</div><div class="stat-value">617</div><div class="stat-delta up">↑ 22%</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Disapprovals</div><div class="stat-value">1</div><div class="stat-note">fix stock or hide</div></div>
+    </div>`;
+}
+
+function renderFeed(root) {
+  root.innerHTML = headBlock("Daily catalogue feed", "Automated catalog export to marketplaces") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Run history</h2><p class="card-sub">Last executions</p></div>
+      <button class="btn btn-primary" id="runFeedBtn">▶ Run feed now</button></div>
+      ${table(
+        ["Run", "Started", "Items", "Result"],
+        `
+          <tr><td class="cell-strong">#412</td><td class="cell-muted">Today 03:00</td><td class="mono">14</td><td>${pill("success", "green")}</td></tr>
+          <tr><td class="cell-strong">#411</td><td class="cell-muted">Yesterday 03:00</td><td class="mono">14</td><td>${pill("success", "green")}</td></tr>
+          <tr><td class="cell-strong">#410</td><td class="cell-muted">Nov 24 03:00</td><td class="mono">13</td><td>${pill("partial — 1 skipped", "amber")}</td></tr>
+          <tr><td class="cell-strong">#409</td><td class="cell-muted">Nov 23 03:00</td><td class="mono">14</td><td>${pill("success", "green")}</td></tr>
+        `
+      )}
+    </div>
+    <ul class="list-clean">
+      <li>🔗 <strong>Feed URL:</strong> <span class="mono cell-muted" id="feedUrl">https://www.lakassgo.com/data/products.xml</span>${pill("copy on click", "blue")}</li>
+      <li>🕒 <strong>Schedule:</strong> daily 03:00 GMT+1 ${pill("active", "green")}</li>
+    </ul>`;
+  el("runFeedBtn").addEventListener("click", (e) => {
+    e.target.textContent = "✓ Feeder queued (demo)";
+    e.target.disabled = true;
+  });
+  el("feedUrl").addEventListener("click", () => showToast("Feed URL copied (demo)"));
+}
+
+function renderIntelligence(root) {
+  root.innerHTML = headBlock("Intelligence", "Automatic insights from store data") + `
+    <div class="tile-grid">
+      <div class="card tile"><span class="tile-ico">🔥</span><div><h3>Trending: brake pads</h3><p>Searches ↑ 47% this week — consider extra stock</p></div>${pill("opportunity", "green")}</div>
+      <div class="card tile"><span class="tile-ico">⚠️</span><div><h3>Stock risk: shock absorbers</h3><p>6 left • weekly sales ×1.8 — restock now</p></div>${pill("urgent", "red")}</div>
+      <div class="card tile"><span class="tile-ico">💤</span><div><h3>Dormant: phone mounts</h3><p>0 sales in 30 days — consider promo</p></div>${pill("review", "amber")}</div>
+      <div class="card tile"><span class="tile-ico">🏆</span><div><h3>Best bundle: pads + discs</h3><p>Bought together in 62% of brake orders</p></div>${pill("bundle idea", "blue")}</div>
+      <div class="card tile"><span class="tile-ico">📍</span><div><h3>Demand zone: Casa → Rabat</h3><p>68% of orders — beta delivery lane proposed</p></div>${pill("ops", "blue")}</div>
+      <div class="card tile"><span class="tile-ico">💰</span><div><h3>Margin watch: batteries</h3><p>Supplier price ↑ 6% — margin now 31%</p></div>${pill("monitor", "amber")}</div>
+    </div>`;
+}
+
+function renderStrategy(root) {
+  root.innerHTML = headBlock("360 Strategy Engine", "Suggested actions from the strategy engine") + `
+    <div class="card">
+      <div class="card-head"><div><h2>This week's strategy queue</h2><p class="card-sub">Accept or dismiss suggestions</p></div></div>
+      ${table(
+        ["Action", "Expected impact", "Effort", "Decision"],
+        `
+          <tr><td class="cell-strong">Promote tire-set bundle before summer</td><td class="cell-muted">+15% tire revenue</td><td class="mono">low</td>
+            <td><button class="btn btn-ghost" data-act="accept">Accept</button> <button class="btn btn-ghost" data-act="dismiss">Dismiss</button></td></tr>
+          <tr><td class="cell-strong">Add APIs for Renault car-part numbers</td><td class="cell-muted">vehicle-match on 40% more cars</td><td class="mono">medium</td>
+            <td><button class="btn btn-ghost" data-act="accept">Accept</button> <button class="btn btn-ghost" data-act="dismiss">Dismiss</button></td></tr>
+          <tr><td class="cell-strong">Open second depot in Rabat</td><td class="cell-muted">-12h avg delivery for 68% of buyers</td><td class="mono">high</td>
+            <td><button class="btn btn-ghost" data-act="accept">Accept</button> <button class="btn btn-ghost" data-act="dismiss">Dismiss</button></td></tr>
+        `
+      )}
+    </div>`;
+  root.querySelectorAll("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => (b.textContent = "✓ done (demo)"))
+  );
+}
+
+function renderFinance(root) {
+  root.innerHTML = headBlock("Finance", "Revenue, costs and payouts") + `
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Revenue (30d)</div><div class="stat-value">$ 1,844</div><div class="stat-delta up">↑ 12.4%</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Cost of goods</div><div class="stat-value">$ 1,102</div><div class="stat-note">59.8% of revenue</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Margin</div><div class="stat-value">40.2%</div><div class="stat-delta up">↑ 1.1 pts</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Pending payout</div><div class="stat-value">$ 431</div><div class="stat-note">next batch Friday</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Payouts</h2><p class="card-sub">Seller settlements</p></div></div>
+      ${table(
+        ["Batch", "Period", "Net", "Method", "Status"],
+        `
+          <tr><td class="cell-strong">PO-1121</td><td class="cell-muted">Nov 17 – Nov 23</td><td class="mono cell-strong">$ 431</td><td class="cell-muted">Bank transfer</td><td>${pill("pending", "amber")}</td></tr>
+          <tr><td class="cell-strong">PO-1114</td><td class="cell-muted">Nov 10 – Nov 16</td><td class="mono cell-strong">$ 388</td><td class="cell-muted">Bank transfer</td><td>${pill("paid", "green")}</td></tr>
+          <tr><td class="cell-strong">PO-1107</td><td class="cell-muted">Nov 3 – Nov 9</td><td class="mono cell-strong">$ 352</td><td class="cell-muted">Rpay wallet</td><td>${pill("paid", "green")}</td></tr>
+        `
+      )}
+    </div>`;
+}
+
+function renderRpay(root) {
+  root.innerHTML = headBlock("Rpay", "Online payment transactions") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Transactions</h2><p class="card-sub">Card &amp; wallet payments via Rpay</p></div></div>
+      ${table(
+        ["Transaction", "Order", "Amount", "Method", "Result"],
+        `
+          <tr><td class="cell-strong mono">TX-88213</td><td class="cell-muted">#LKG-1042</td><td class="mono cell-strong">$ 34.90</td><td class="cell-muted">VISA •• 4417</td><td>${pill("captured", "green")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88197</td><td class="cell-muted">#LKG-1038</td><td class="mono cell-strong">$ 29.90</td><td class="cell-muted">Mastercard •• 2203</td><td>${pill("captured", "green")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88170</td><td class="cell-muted">#LKG-1036</td><td class="mono cell-strong">$ 44.90</td><td class="cell-muted">Wallet</td><td>${pill("refunded", "gray")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88144</td><td class="cell-muted">#LKG-1034</td><td class="mono cell-strong">$ 17.90</td><td class="cell-muted">VISA •• 9081</td><td>${pill("captured", "green")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88120</td><td class="cell-muted">#LKG-1031</td><td class="mono cell-strong">$ 58.90</td><td class="cell-muted">VISA •• 3356</td><td>${pill("declined", "red")}</td></tr>
+        `
+      )}
+    </div>
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Captured (30d)</div><div class="stat-value">$ 1,312</div><div class="stat-note">31 transactions</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Auth rate</div><div class="stat-value">94%</div><div class="stat-note">of attempts</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Chargebacks</div><div class="stat-value">0</div><div class="stat-note">nothing open</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Fees (30d)</div><div class="stat-value">$ 27.90</div><div class="stat-note">1.9% + fixed</div></div>
+    </div>`;
+}
+
+function renderProcurement(root) {
+  root.innerHTML = headBlock("Procurement", "Supplier orders and restocks") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Supplier purchase orders</h2><p class="card-sub">Inbound stock</p></div>
+      <button class="btn btn-primary" id="newPoBtn">＋ New PO</button></div>
+      ${table(
+        ["PO", "Supplier", "Items", "Total", "Status"],
+        `
+          <tr><td class="cell-strong">PO-2201</td><td class="cell-muted">Mecadis SARL</td><td class="mono">bushings ×40</td><td class="mono cell-strong">$ 612</td><td>${pill("in transit", "blue")}</td></tr>
+          <tr><td class="cell-strong">PO-2200</td><td class="cell-muted">AutoParts Atlas</td><td class="mono">shocks ×24</td><td class="mono cell-strong">$ 742</td><td>${pill("confirmed", "green")}</td></tr>
+          <tr><td class="cell-strong">PO-2199</td><td class="cell-muted">Batterie Plus</td><td class="mono">batteries ×12</td><td class="mono cell-strong">$ 690</td><td>${pill("draft", "gray")}</td></tr>
+          <tr><td class="cell-strong">PO-2198</td><td class="cell-muted">Mecadis SARL</td><td class="mono">pads ×60</td><td class="mono cell-strong">$ 1,104</td><td>${pill("received", "green")}</td></tr>
+        `
+      )}
+    </div>
+    <ul class="list-clean">
+      <li>🏭 <strong>Mecadis SARL</strong> — lead time 4 days, 96% fill rate ${pill("preferred", "green")}</li>
+      <li>🏭 <strong>AutoParts Atlas</strong> — lead time 6 days, 89% fill rate ${pill("backup", "gray")}</li>
+      <li>🏭 <strong>Batterie Plus</strong> — lead time 3 days, warranty 24 mo ${pill("specialty", "blue")}</li>
+    </ul>`;
+  el("newPoBtn").addEventListener("click", () => showToast("New purchase order (demo)"));
+}
+
+function renderStore(root) {
+  root.innerHTML = headBlock("Public store", "Your live storefront") + `
+    <div class="card card-pad">
+      <h2>lakassGo storefront</h2>
+      <p class="card-sub">Opens the public site in a new tab</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+        <a class="btn btn-primary" href="https://www.lakassgo.com" target="_blank" rel="noopener">🌐 www.lakassgo.com</a>
+        <a class="btn btn-ghost" href="index.html" target="_blank" rel="noopener">Preview locally →</a>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Store status</div><div class="stat-value">Live</div><div class="stat-note">HTTPS enforced</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Uptime (30d)</div><div class="stat-value">99.98%</div><div class="stat-note">static hosting</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Catalog on site</div><div class="stat-value">14</div><div class="stat-note">parts live</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Incidents</div><div class="stat-value">0</div><div class="stat-note">nothing open</div></div>
+    </div>`;
+}
+
+/* ---------- Render dispatch ---------- */
+const RENDERERS = {
+  dashboard: () => renderDashboard(),
+  orders: (root) => renderOrders(root),
+  delivery: (root) => renderDelivery(root),
+  chat: (root) => renderChat(root),
+  products: (root) => renderProducts(root),
+  inventory: (root) => renderInventory(root),
+  catalogue: (root) => renderCatalogue(root),
+  slider: (root) => renderSlider(root),
+  reporting: (root) => renderReporting(root),
+  marketing: (root) => renderMarketing(root),
+  channels: (root) => renderChannels(root),
+  gshopping: (root) => renderGshopping(root),
+  feed: (root) => renderFeed(root),
+  intelligence: (root) => renderIntelligence(root),
+  strategy: (root) => renderStrategy(root),
+  finance: (root) => renderFinance(root),
+  rpay: (root) => renderRpay(root),
+  procurement: (root) => renderProcurement(root),
+  store: (root) => renderStore(root),
+};
+function renderView(name) {
+  const root = el("view-" + name);
+  if (!root || !RENDERERS[name]) return;
+  RENDERERS[name](root);
+}
+
+/* ---------- Toast ---------- */
+let toastTimer;
+function showToast(msg) {
+  let t = el("toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast";
+    t.style.cssText =
+      "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+      "background:#2c3e50;color:#fff;padding:11px 22px;border-radius:999px;font-size:13.5px;" +
+      "font-weight:700;z-index:200;box-shadow:0 12px 30px rgba(21,33,46,.3);";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.remove(), 2400);
+}
+
+/* ---------- Range selector ---------- */
+function initRanges() {
+  el("rangeSel").addEventListener("change", (e) => {
+    const days = Number(e.target.value);
+    const scale = days / 7;
+    const total = Math.round(DATA_RANGES.base.reduce((s, v) => s + v, 0) * scale);
+    el("stSessions").textContent = total.toLocaleString("en-US");
+    el("stViews").textContent = (total * 12).toLocaleString("en-US");
+    el("stViewsNote").textContent = "12 pages per session";
+    const ordered = Math.max(1, Math.round(total * 0.002));
+    el("stConv").textContent = "0.2%";
+    el("stConvNote").textContent = ordered + " sessions that ordered";
+    el("stRev").textContent = "$ " + (ordered * 29.74).toFixed(2);
+  });
+}
+
+/* ---------- Boot ---------- */
+initAuth();
+initNav();
+initRanges();
+el("year").textContent = new Date().getFullYear();
