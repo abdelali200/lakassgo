@@ -1,486 +1,331 @@
-/* ================= lakassGo Admin — Application ================= */
-"use strict";
-
-/* ---------- Helpers ---------- */
-const el = (id) => document.getElementById(id);
-const $ = (sel, root = document) => root.querySelector(sel);
-const money = (n) => "$ " + n.toFixed(2);
-
-function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
-    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
-  ));
-}
-
-function table(headers, rowsHtml) {
-  return `
-    <div class="table-wrap">
-      <table>
-        <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-    </div>`;
-}
-function pill(text, color) {
-  return `<span class="pill pill-${color}">${text}</span>`;
-}
-const headBlock = (title, sub) => `
-  <div class="view-head"><div><h1>${title}</h1><p>${sub}</p></div></div>`;
-
-/* ---------- Auth ---------- */
-const ADMIN_USER = "admin";
-const ADMIN_PASS = "LkG-2025-Admin!";
-const session = {
-  get() { try { return sessionStorage.getItem("lkg_admin_session"); } catch { return null; } },
-  set() { try { sessionStorage.setItem("lkg_admin_session", "1"); } catch { /* ignore */ } },
-  clear() { try { sessionStorage.removeItem("lkg_admin_session"); } catch { /* ignore */ } },
-};
-
-function showLogin() {
-  el("loginForm").hidden = false;
-  el("app").hidden = true;
-  document.body.classList.add("login-page");
-}
-function showApp() {
-  el("loginForm").hidden = true;
-  el("app").hidden = false;
-  document.body.classList.remove("login-page");
-  switchView("dashboard");
-}
-function initAuth() {
-  if (session.get() === "1") showApp();
-  el("loginForm").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const u = el("loginUser").value.trim();
-    const p = el("loginPass").value;
-    if (u === ADMIN_USER && p === ADMIN_PASS) {
-      el("loginError").hidden = true;
-      el("loginPass").value = "";
-      session.set();
-      showApp();
-    } else {
-      el("loginError").hidden = false;
-    }
-  });
-  el("signOutBtn").addEventListener("click", () => {
-    session.clear();
-    el("loginUser").value = "";
-    showLogin();
-  });
-}
-
-/* ---------- Navigation ---------- */
-const RENDERED = new Set();
-function switchView(name) {
-  document.querySelectorAll(".side-item").forEach((b) => {
-    const active = b.dataset.view === name;
-    b.classList.toggle("active", active);
-    b.setAttribute("aria-current", active ? "page" : "false");
-  });
-  document.querySelectorAll(".view").forEach((v) => {
-    v.hidden = v.id !== "view-" + name;
-  });
-  if (!RENDERED.has(name)) {
-    RENDERED.add(name);
-    renderView(name);
-  }
-  el("sidebar").classList.remove("open");
-}
-function initNav() {
-  document.querySelectorAll(".side-item").forEach((btn) =>
-    btn.addEventListener("click", () => switchView(btn.dataset.view))
-  );
-  el("menuBtn").addEventListener("click", () => el("sidebar").classList.toggle("open"));
-}
-
-/* ---------- Demo data ---------- */
-const ORDERS = [
-  { id: "#LKG-1042", customer: "Yassine B.", date: "Nov 25, 2026", total: 34.9, status: "pending" },
-  { id: "#LKG-1041", customer: "Salma E.", date: "Nov 25, 2026", total: 78.4, status: "processing" },
-  { id: "#LKG-1040", customer: "Omar T.", date: "Nov 24, 2026", total: 19.9, status: "shipped" },
-  { id: "#LKG-1039", customer: "Nadia K.", date: "Nov 24, 2026", total: 112.0, status: "delivered" },
-  { id: "#LKG-1038", customer: "Hamza R.", date: "Nov 23, 2026", total: 29.9, status: "delivered" },
-  { id: "#LKG-1037", customer: "Ilham M.", date: "Nov 23, 2026", total: 45.5, status: "shipped" },
-  { id: "#LKG-1036", customer: "Karim A.", date: "Nov 22, 2026", total: 44.9, status: "cancelled" },
-  { id: "#LKG-1035", customer: "Sofia L.", date: "Nov 22, 2026", total: 61.2, status: "delivered" },
-  { id: "#LKG-1034", customer: "Bilal Z.", date: "Nov 21, 2026", total: 17.9, status: "delivered" },
-  { id: "#LKG-1033", customer: "Rim D.", date: "Nov 21, 2026", total: 96.0, status: "processing" },
-];
-const STATUS_PILLS = {
-  pending: ["pending", "amber"],
-  processing: ["processing", "blue"],
-  shipped: ["shipped", "blue"],
-  delivered: ["delivered", "green"],
-  cancelled: ["cancelled", "red"],
-};
-const SHIPMENTS = [
-  { id: "TRK-77012", order: "#LKG-1041", carrier: "Amana Express", city: "Casablanca", status: "in transit" },
-  { id: "TRK-77009", order: "#LKG-1040", carrier: "CTM Messagerie", city: "Rabat", status: "in transit" },
-  { id: "TRK-77005", order: "#LKG-1039", carrier: "Amana Express", city: "Marrakech", status: "delivered" },
-  { id: "TRK-77001", order: "#LKG-1038", carrier: "DHL", city: "Tangier", status: "delivered" },
-  { id: "TRK-76996", order: "#LKG-1037", carrier: "Amana Express", city: "Fes", status: "delayed" },
-];
-const STATUS_STYLES = { "in transit": "blue", delivered: "green", delayed: "red" };
-const CHATS = [
-  { name: "Yassine B.", topic: "Does this pads set fit a Clio 4?", time: "2 min ago", unread: true },
-  { name: "Salma E.", topic: "Can I return the mirror if it doesn't match?", time: "18 min ago", unread: true },
-  { name: "Omar T.", topic: "Delivery time to Tangier?", time: "1 h ago", unread: true },
-  { name: "Nadia K.", topic: "Invoice request for #LKG-1039", time: "3 h ago", unread: false },
-  { name: "Hamza R.", topic: "Thanks, part received — great quality!", time: "Yesterday", unread: false },
-];
-const PRODUCT_SEEDS = [
-  { name: "Ceramic Brake Pads — Front Set", cat: "brakes", price: 34.9, stock: 42, icon: "🛞" },
-  { name: "Vented Brake Discs — Pair", cat: "brakes", price: 58.0, stock: 18, icon: "💿" },
-  { name: "Oil Filter (Universal Fit)", cat: "engine", price: 7.9, stock: 96, icon: "🛢️" },
-  { name: "Air Filter — High Flow", cat: "engine", price: 12.5, stock: 54, icon: "🌬️" },
-  { name: "12V 60Ah Battery", cat: "electric", price: 89.0, stock: 9, icon: "🔋" },
-  { name: "Headlight Bulb H7 — Pair", cat: "electric", price: 11.9, stock: 120, icon: "💡" },
-  { name: "Shock Absorber — Front", cat: "suspension", price: 46.0, stock: 6, icon: "🔩" },
-  { name: "Wiper Blades Set 24\"/18\"", cat: "body", price: 15.9, stock: 33, icon: "🌧️" },
-];
-function loadProducts() {
-  try {
-    const raw = localStorage.getItem("lkg_admin_products");
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr) && arr.length >= 0) return arr;
-    }
-  } catch { /* ignore */ }
-  return PRODUCT_SEEDS.map((p) => ({ ...p }));
-}
-function saveProducts() {
-  try {
-    localStorage.setItem("lkg_admin_products", JSON.stringify(PRODUCTS));
-    return true;
-  } catch {
-    showToast("Storage full — remove some photos");
-    return false;
-  }
-}
-let PRODUCTS = loadProducts();
-function refreshProductViews() {
-  ["inventory", "catalogue", "gshopping"].forEach((v) => RENDERED.delete(v));
-  renderView("products");
-}
-const FEED_PLATFORMS = [
-  { name: "Google Shopping", items: 14, status: "active", last: "Today 03:00" },
-  { name: "Facebook Catalog", items: 14, status: "active", last: "Today 03:00" },
-  { name: "Instagram Shop", items: 14, status: "active", last: "Yesterday 23:40" },
-  { name: "Avito Pro (export)", items: 8, status: "paused", last: "Nov 20 12:00" },
-];
-
-/* ---------- Dashboard ---------- */
-const DATA_RANGES = {
-  labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-  base: [96, 124, 141, 118, 152, 189, 135],
-};
-function renderDashboard() {
-  el("barChart").innerHTML = DATA_RANGES.base
-    .map((v, i) => `
-      <div class="bar-col">
-        <div class="bar-tip">${v} sessions</div>
-        <div class="bar" style="height:${(v / 200) * 100}%"></div>
-        <span class="bar-label">${DATA_RANGES.labels[i]}</span>
-      </div>`)
-    .join("");
-}
-
-/* ---------- Orders ---------- */
-function renderOrders(root) {
-  root.innerHTML = headBlock("Orders", "Recent customer orders") + `
+/* ---------- Inventory ---------- */
+function renderInventory(root) {
+  root.innerHTML = headBlock("Inventory", "Stock levels") + `
     <div class="card">
-      <div class="card-head"><div><h2>All orders</h2><p class="card-sub">${ORDERS.length} orders</p></div>
-      <button class="btn btn-primary" id="newOrderBtn">＋ New order</button></div>
+      <div class="card-head"><div><h2>Stock levels</h2><p class="card-sub">Low stock highlights &lt; 10 units</p></div></div>
       ${table(
-        ["Order", "Customer", "Date", "Total", "Status", "Actions"],
-        ORDERS.map((o) => {
-          const p = STATUS_PILLS[o.status];
-          return `
-            <tr>
-              <td class="mono cell-strong">${o.id}</td>
-              <td class="cell-strong">${o.customer}</td>
-              <td class="cell-muted">${o.date}</td>
-              <td class="mono cell-strong">${money(o.total)}</td>
-              <td>${pill(p[0], p[1])}</td>
-              <td><button class="btn btn-ghost" data-act="view">View</button> <button class="btn btn-ghost" data-act="invoice">Invoice</button></td>
-            </tr>`;
-        }).join("")
-      )}
-    </div>`;
-  el("newOrderBtn").addEventListener("click", () => showToast("New order form (demo)"));
-  root.querySelectorAll("[data-act]").forEach((b) =>
-    b.addEventListener("click", () =>
-      showToast(b.dataset.act === "view" ? "Order details (demo)" : "Invoice (demo)"))
-  );
-}
-
-/* ---------- Delivery ---------- */
-function renderDelivery(root) {
-  root.innerHTML = headBlock("Delivery", "Shipments and couriers") + `
-    <div class="card">
-      <div class="card-head"><div><h2>Active shipments</h2><p class="card-sub">Live tracking</p></div></div>
-      ${table(
-        ["Tracking", "Order", "Carrier", "City", "Status"],
-        SHIPMENTS.map((s) => `
-          <tr>
-            <td class="mono cell-strong">${s.id}</td>
-            <td class="mono cell-muted">${s.order}</td>
-            <td class="cell-strong">${s.carrier}</td>
-            <td class="cell-muted">${s.city}</td>
-            <td>${pill(s.status, STATUS_STYLES[s.status])}</td>
-          </tr>`).join("")
-      )}
-    </div>`;
-}
-
-/* ---------- Chat ---------- */
-function renderChat(root) {
-  root.innerHTML = headBlock("Chat", "Customer messages") + `
-    <div class="card">
-      <div class="card-head"><div><h2>Inbox</h2><p class="card-sub">${CHATS.filter((c) => c.unread).length} unread</p></div></div>
-      ${table(
-        ["Customer", "Message", "Received", ""],
-        CHATS.map((c) => `
-          <tr>
-            <td class="cell-strong">${c.unread ? "🔵 " : ""}${c.name}</td>
-            <td class="cell-muted">${c.topic}</td>
-            <td class="cell-muted">${c.time}</td>
-            <td><button class="btn btn-ghost" data-act="reply">Reply</button></td>
-          </tr>`).join("")
-      )}
-    </div>`;
-  root.querySelectorAll("[data-act]").forEach((b) =>
-    b.addEventListener("click", () => showToast("Chat opened (demo)"))
-  );
-}
-
-/* ---------- Products ---------- */
-let editingIndex = null;
-function renderProducts(root) {
-  root.innerHTML = headBlock("Products", "Catalog you sell") + `
-    <div class="card">
-      <div class="card-head"><div><h2>All products</h2><p class="card-sub">${PRODUCTS.length} items</p></div>
-      <button class="btn btn-primary" id="newProductBtn">＋ Add product</button></div>
-      ${table(
-        ["Product", "Category", "Price", "Stock", "State", "Actions"],
-        PRODUCTS.map((p, i) => {
+        ["Product", "Stock", "Level", "State"],
+        PRODUCTS.map((p) => {
+          const pct = Math.min(100, p.stock * 3);
           const low = p.stock < 10;
           return `
             <tr>
-              <td class="cell-strong"><span class="row-art">${(p.photos && p.photos.length) ? `<img class="row-thumb" src="${p.photos[0]}" alt="" />` : (p.icon || "📦")}</span>${p.name}</td>
-              <td class="cell-muted">${p.cat}</td>
-              <td class="mono cell-strong">${money(p.price)}</td>
+              <td class="cell-strong">${p.name}</td>
               <td class="mono">${p.stock}</td>
+              <td><div class="progress"><span style="width:${pct}%"></span></div></td>
               <td>${pill(low ? "low stock" : "healthy", low ? "red" : "green")}</td>
-              <td><button class="btn btn-ghost" data-edit="${i}">Edit</button> <button class="btn btn-ghost" data-del="${i}">Delete</button></td>
             </tr>`;
         }).join("")
       )}
     </div>`;
-  el("newProductBtn").addEventListener("click", () => openProductModal(null));
-  root.querySelectorAll("[data-edit]").forEach((b) =>
-    b.addEventListener("click", () => openProductModal(Number(b.dataset.edit)))
-  );
-  root.querySelectorAll("[data-del]").forEach((b) =>
-    b.addEventListener("click", () => {
-      if (b.dataset.armed) {
-        PRODUCTS.splice(Number(b.dataset.del), 1);
-        saveProducts();
-        showToast("Product deleted");
-        refreshProductViews();
-      } else {
-        b.dataset.armed = "1";
-        b.textContent = "Confirm?";
-        setTimeout(() => {
-          if (b.isConnected) { delete b.dataset.armed; b.textContent = "Delete"; }
-        }, 3000);
-      }
-    })
-  );
 }
 
-let modalPhotos = [];
-function paintPmGallery() {
-  const g = el("pmGallery");
-  if (!g) return;
-  g.innerHTML = modalPhotos.length
-    ? modalPhotos.map((src, i) => `
-        <div class="pm-thumb"><img src="${src}" alt="" /><button type="button" data-rm="${i}" aria-label="Remove photo">✕</button></div>`).join("")
-    : `<span class="pm-empty">No photos yet — add some below</span>`;
+/* ---------- Catalogue / Slider / Reporting / Marketing ---------- */
+function renderCatalogue(root) {
+  root.innerHTML = headBlock("Catalogue", "Storefront product display") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Catalogue status</h2><p class="card-sub">Products visible on the storefront</p></div>
+      <button class="btn btn-ghost">↻ Rebuild catalogue</button></div>
+      ${table(
+        ["Category", "Products", "Visibility"],
+        `
+          <tr><td class="cell-strong">Brakes</td><td class="mono">2</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Engine</td><td class="mono">2</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Electric</td><td class="mono">2</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Suspension</td><td class="mono">1</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Body</td><td class="mono">1</td><td>${pill("visible", "green")}</td></tr>
+        `
+      )}
+    </div>`;
 }
-function fileToPhotoDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result);
-      const img = new Image();
-      let settled = false;
-      const fallback = () => {
-        if (!settled) { settled = true; resolve(dataUrl); }
-      };
-      img.onload = () => {
-        if (settled) return;
-        settled = true;
-        try {
-          const max = 480;
-          const scale = Math.min(1, max / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) throw new Error("no canvas");
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL("image/jpeg", 0.72));
-        } catch {
-          resolve(dataUrl);
-        }
-      };
-      img.onerror = fallback;
-      setTimeout(fallback, 1200);
-      img.src = dataUrl;
-    };
-    reader.onerror = () => reject(new Error("read failed"));
-    reader.readAsDataURL(file);
-  });
+
+/* ---------- Slider manager ---------- */
+const SLIDES_KEY = "lkg_site_slides";
+
+function slideDefaults() {
+  return [
+    {
+      id: "slide-1", enabled: true, productId: "brk-101", image: "",
+      eyebrow: "Free delivery • New & inspected used parts",
+      title: "Save more, get back on the road faster — every spare part in one place",
+      subtitle: "lakassGo is the marketplace for buying and selling auto spare parts: engines, brakes, filters, oils, tires, batteries and accessories.",
+      ctaText: "Shop today's deals", ctaUrl: "#deals",
+      bg1: "#7c3aed", bg2: "#2563eb", color: "#ffffff",
+    },
+    {
+      id: "slide-2", enabled: true, productId: "tir-104", image: "",
+      eyebrow: "Brakes & suspension",
+      title: "Stopping power you can trust — brakes & tires up to −30%",
+      subtitle: "Ceramic pads, discs and shocks for the most common makes — fitted right, first time.",
+      ctaText: "Shop brakes & tires", ctaUrl: "#deals",
+      bg1: "#0f172a", bg2: "#1d4ed8", color: "#ffffff",
+    },
+    {
+      id: "slide-3", enabled: true, productId: "bat-103", image: "",
+      eyebrow: "Batteries & electrical",
+      title: "Dead battery? Fresh 12V power delivered to your door",
+      subtitle: "Maintenance-free batteries sized to OEM spec, with free fitting advice from our mechanics.",
+      ctaText: "Shop batteries", ctaUrl: "#deals",
+      bg1: "#065f46", bg2: "#22c55e", color: "#ffffff",
+    },
+  ];
 }
-function openProductModal(index) {
-  editingIndex = index;
-  modalPhotos = index === null ? [] : [...(PRODUCTS[index].photos || [])];
-  let modal = el("productModal");
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "productModal";
-    modal.className = "modal-overlay";
-    modal.innerHTML = `
-      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
-        <div class="modal-head">
-          <h2 id="pmTitle">Add product</h2>
-          <button class="modal-close" id="pmClose" aria-label="Close">✕</button>
-        </div>
-        <form id="pmForm" novalidate>
-          <div class="form-grid">
-            <label class="form-field form-span">Name
-              <input type="text" id="pmName" placeholder="e.g. Ceramic Brake Pads — Front Set" />
-            </label>
-            <label class="form-field">Category
-              <select id="pmCat">
-                <option value="brakes">Brakes</option>
-                <option value="engine">Engine</option>
-                <option value="electric">Electric</option>
-                <option value="suspension">Suspension</option>
-                <option value="body">Body</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label class="form-field">Price ($)
-              <input type="number" id="pmPrice" min="0" step="0.01" />
-            </label>
-            <label class="form-field">Stock
-              <input type="number" id="pmStock" min="0" step="1" />
-            </label>
-            <div class="form-field form-span">Photos
-              <div class="pm-gallery" id="pmGallery"></div>
-              <div class="pm-add-row">
-                <label class="btn btn-ghost pm-upload">📷 Add photos
-                  <input type="file" id="pmFiles" accept="image/*" multiple hidden />
+
+function loadSlides() {
+  try {
+    const raw = localStorage.getItem(SLIDES_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) return arr;
+    }
+  } catch { /* ignore */ }
+  return slideDefaults();
+}
+
+function saveSlidesToStore(slides) {
+  try {
+    localStorage.setItem(SLIDES_KEY, JSON.stringify(slides));
+    return true;
+  } catch {
+    showToast("⚠️ Storage full — use a smaller image");
+    return false;
+  }
+}
+
+let slidesDraft = [];
+
+function slField(i, key, label, value, type = "text") {
+  return `
+    <label class="sl-field" data-key="${key}" data-i="${i}">${label}
+      <input type="${type}" data-f="${key}" data-i="${i}" value="${esc(value)}" />
+    </label>`;
+}
+
+function renderSlider(root) {
+  slidesDraft = loadSlides().map((s) => ({ ...s }));
+  const opts = PRODUCTS.map((p) =>
+    `<option value="${esc(p.id)}">${esc((p.name || "Untitled") + " — " + money(Number(p.price) || 0))}</option>`
+  ).join("");
+
+  root.innerHTML = headBlock("Slider", "Homepage hero banners — shown under the header on the storefront") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Homepage slider</h2><p class="card-sub">Three featured slides — pick the product, image, texts and colors</p></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost" id="resetSlidesBtn">↺ Reset</button>
+        <button class="btn btn-primary" id="saveSlidesBtn">💾 Save slider</button>
+      </div></div>
+      <div class="sl-editor">
+        ${slidesDraft.map((s, i) => `
+        <div class="sl-card${s.enabled === false ? " disabled" : ""}" data-card="${i}">
+          <div class="sl-card-top">
+            <h2>■ Slide ${i + 1}</h2>
+            <label class="sl-toggle"><input type="checkbox" data-f="enabled" data-i="${i}" ${s.enabled === false ? "" : "checked"} /> Visible on site</label>
+          </div>
+          <div class="sl-grid">
+            <div>
+              <label class="sl-field">Featured product
+                <select data-f="productId" data-i="${i}">${opts}</select>
+              </label>
+              <div style="margin-top:12px">
+                <label class="sl-field">Product <select> shows the product's own photo — or use a custom slide image below</label>
+              </div>
+              ${slField(i, "eyebrow", "Eyebrow badge", s.eyebrow || "")}
+              ${slField(i, "title", "Headline", s.title || "")}
+              ${slField(i, "subtitle", "Subtext", s.subtitle || "")}
+              <div class="sl-grid" style="grid-template-columns:1fr 1fr">
+                ${slField(i, "ctaText", "Button text", s.ctaText || "")}
+                ${slField(i, "ctaUrl", "Button link", s.ctaUrl || "")}
+              </div>
+            </div>
+            <div>
+              <div class="sl-colors">
+                <label class="sl-field">Background from
+                  <input type="color" data-f="bg1" data-i="${i}" value="${esc(s.bg1 || "#7c3aed")}" />
                 </label>
-                <input type="url" id="pmUrl" placeholder="…or paste an image URL" />
-                <button type="button" class="btn btn-ghost" id="pmUrlAdd">Add URL</button>
+                <label class="sl-field">Background to
+                  <input type="color" data-f="bg2" data-i="${i}" value="${esc(s.bg2 || "#2563eb")}" />
+                </label>
+                <label class="sl-field">Text color
+                  <input type="color" data-f="color" data-i="${i}" value="${esc(s.color || "#ffffff")}" />
+                </label>
+              </div>
+              <div style="margin-top:12px">
+                <label class="sl-field">Custom slide image (optional)</label>
+                <div class="sl-img-row">
+                  <div class="pm-add-row" style="flex:1">
+                    <input type="url" data-f="image" data-i="${i}" placeholder="https://… or upload" value="${esc(s.image || "")}" />
+                  </div>
+                </div>
+                <div class="pm-add-row">
+                  <button class="btn btn-ghost pm-upload" data-slupload="${i}">📤 Upload photo</button>
+                  <input type="file" accept="image/*" data-slfile="${i}" hidden />
+                  ${s.image ? `<img class="sl-thumb" src="${esc(s.image)}" alt="slide image" />` : `<span class="pm-empty">No custom image — using product photo / icon</span>`}
+                  ${s.image ? `<button class="btn btn-ghost" data-slclear="${i}">✕ Remove</button>` : ""}
+                </div>
               </div>
             </div>
           </div>
-          <p class="form-error" id="pmError" hidden></p>
-          <div class="form-actions">
-            <button type="button" class="btn btn-ghost" id="pmCancel">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="pmSave">Save product</button>
+          <div class="sl-preview" data-preview="${i}" style="background:linear-gradient(120deg, ${esc(s.bg1 || "#7c3aed")}, ${esc(s.bg2 || "#2563eb")});color:${esc(s.color || "#ffffff")}">
+            <strong data-pv-title="${i}">${esc(s.title || "Untitled slide")}</strong>
           </div>
-        </form>
-      </div>`;
-    document.body.appendChild(modal);
-    const closeModal = () => (modal.hidden = true);
-    el("pmClose").addEventListener("click", closeModal);
-    el("pmCancel").addEventListener("click", closeModal);
-    modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !modal.hidden) closeModal();
-    });
-    el("pmFiles").addEventListener("change", async (e) => {
-      const files = [...e.target.files];
-      e.target.value = "";
-      for (const f of files) {
-        if (f.size > 5 * 1024 * 1024) { showToast("Too large (max 5 MB): " + (f.name || "file")); continue; }
-        try {
-          modalPhotos.push(await fileToPhotoDataUrl(f));
-        } catch {
-          showToast("Could not read " + (f.name || "file"));
+          <div class="sl-save">
+            <button class="btn btn-primary" data-slsave="${i}">✔ Save slide ${i + 1}</button>
+          </div>
+        </div>`).join("")}
+      </div>
+    </div>`;
+
+  const num = (v, def) => (/^#[0-9a-fA-F]{6}$/.test(v) ? v : def);
+
+  const onField = (input) => {
+    const i = Number(input.dataset.i);
+    const key = input.dataset.f;
+    if (!slidesDraft[i]) return;
+    if (key === "enabled") {
+      slidesDraft[i].enabled = input.checked;
+      const card = root.querySelector(`[data-card="${i}"]`);
+      if (card) card.classList.toggle("disabled", !input.checked);
+    } else {
+      slidesDraft[i][key] = input.value;
+      if (["bg1", "bg2", "color"].includes(key)) {
+        const pv = root.querySelector(`[data-preview="${i}"]`);
+        if (pv) {
+          pv.style.background = "linear-gradient(120deg, " +
+            num(slidesDraft[i].bg1, "#7c3aed") + ", " + num(slidesDraft[i].bg2, "#2563eb") + ")";
+          pv.style.color = num(slidesDraft[i].color, "#ffffff");
         }
       }
-      paintPmGallery();
-    });
-    el("pmUrlAdd").addEventListener("click", () => {
-      const url = el("pmUrl").value.trim();
-      if (!/^(https?:\/\/|data:image\/)/.test(url)) {
-        el("pmError").textContent = "Enter a valid image URL (https://…).";
-        el("pmError").hidden = false;
+    }
+  };
+  root.querySelectorAll("[data-f]").forEach((input) => {
+    input.addEventListener("input", () => onField(input));
+    input.addEventListener("change", () => onField(input));
+  });
+
+  root.querySelectorAll("[data-slupload]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const i = btn.dataset.slupload;
+      const file = root.querySelector(`[data-slfile="${i}"]`);
+      if (file) file.click();
+    })
+  );
+  root.querySelectorAll("[data-slfile]").forEach((inp) =>
+    inp.addEventListener("change", async () => {
+      const i = Number(inp.dataset.slfile);
+      const f = inp.files && inp.files[0];
+      if (!f || !slidesDraft[i]) return;
+      const data = await fileToPhotoDataUrl(f);
+      slidesDraft[i].image = data;
+      renderSlider(root);
+      showToast("✅ Image added — remember to Save");
+    })
+  );
+  root.querySelectorAll("[data-slclear]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.slclear);
+      if (!slidesDraft[i]) return;
+      slidesDraft[i].image = "";
+      renderSlider(root);
+    })
+  );
+  root.querySelectorAll("[data-slsave]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.slsave);
+      const s = slidesDraft[i];
+      if (!s) return;
+      if (!s.title || !String(s.title).trim()) {
+        showToast("⚠️ Add a headline first");
+        const input = root.querySelector(`input[data-f="title"][data-i="${i}"]`);
+        if (input) input.focus();
         return;
       }
-      modalPhotos.push(url);
-      el("pmUrl").value = "";
-      el("pmError").hidden = true;
-      paintPmGallery();
-    });
-    el("pmGallery").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-rm]");
-      if (!btn) return;
-      modalPhotos.splice(Number(btn.dataset.rm), 1);
-      paintPmGallery();
-    });
-    el("pmForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const name = el("pmName").value.trim();
-      const price = Number(el("pmPrice").value);
-      const stock = Number(el("pmStock").value);
-      const fail = (msg) => { el("pmError").textContent = msg; el("pmError").hidden = false; };
-      if (!name) return fail("Product name is required.");
-      if (!Number.isFinite(price) || price < 0) return fail("Enter a valid price (0 or more).");
-      if (!Number.isInteger(stock) || stock < 0) return fail("Enter a valid stock number (0 or more).");
-      const data = {
-        name,
-        cat: el("pmCat").value,
-        price: Math.round(price * 100) / 100,
-        stock,
-        photos: [...modalPhotos],
-      };
-      if (editingIndex === null) {
-        PRODUCTS.push(data);
-        showToast("Product added");
-      } else {
-        Object.assign(PRODUCTS[editingIndex], data);
-        showToast("Product updated");
+      const all = loadSlides();
+      all[i] = { ...s, enabled: s.enabled !== false };
+      if (saveSlidesToStore(all)) showToast("✅ Slide " + (i + 1) + " saved — check the storefront");
+    })
+  );
+  el("saveSlidesBtn").addEventListener("click", () => {
+    for (let i = 0; i < slidesDraft.length; i++) {
+      if (!String(slidesDraft[i].title || "").trim()) {
+        showToast("⚠️ Slide " + (i + 1) + " needs a headline");
+        return;
       }
-      saveProducts();
-      modal.hidden = true;
-      refreshProductViews();
-    });
-  } else {
-    el("pmError").hidden = true;
-  }
-  el("pmTitle").textContent = index === null ? "Add product" : "Edit product";
-  if (index === null) {
-    el("pmName").value = "";
-    el("pmCat").value = "brakes";
-    el("pmPrice").value = "";
-    el("pmStock").value = "";
-  } else {
-    const p = PRODUCTS[index];
-    el("pmName").value = p.name;
-    el("pmCat").value = ["brakes", "engine", "electric", "suspension", "body"].includes(p.cat) ? p.cat : "other";
-    el("pmPrice").value = p.price;
-    el("pmStock").value = p.stock;
-  }
-  paintPmGallery();
-  modal.hidden = false;
-  el("pmName").focus();
+    }
+    const all = slidesDraft.map((s) => ({ ...s, enabled: s.enabled !== false }));
+    if (saveSlidesToStore(all)) showToast("✅ Slider saved — open the storefront to see it");
+  });
+  el("resetSlidesBtn").addEventListener("click", () => {
+    if (el("resetSlidesBtn").dataset.armed === "1") {
+      delete el("resetSlidesBtn").dataset.armed;
+      const defs = slideDefaults();
+      saveSlidesToStore(defs);
+      slidesDraft = defs.map((s) => ({ ...s }));
+      renderSlider(root);
+      showToast("↺ Slider reset to defaults");
+    } else {
+      el("resetSlidesBtn").dataset.armed = "1";
+      el("resetSlidesBtn").textContent = "Sure? Click again";
+      showToast("Click again to confirm reset");
+      setTimeout(() => {
+        const b = el("resetSlidesBtn");
+        if (b) { delete b.dataset.armed; b.textContent = "↺ Reset"; }
+      }, 3000);
+    }
+  });
+}
+
+function renderReporting(root) {
+  root.innerHTML = headBlock("Reporting", "Sales reports") + `
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Orders (30d)</div><div class="stat-value">118</div><div class="stat-delta up">↑ 9.2%</div><div class="stat-note">vs 108 previous</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Items sold</div><div class="stat-value">246</div><div class="stat-delta up">↑ 11.7%</div><div class="stat-note">2.1 per order</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Avg order</div><div class="stat-value">$ 29.74</div><div class="stat-delta down">↓ 1.8%</div><div class="stat-note">per checkout</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Refunds</div><div class="stat-value">3</div><div class="stat-note">2.5% of orders</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Sales by category</h2><p class="card-sub">Last 30 days</p></div></div>
+      ${table(
+        ["Category", "Orders", "Revenue"],
+        `
+          <tr><td class="cell-strong">Brakes</td><td class="mono">51</td><td class="mono cell-strong">$ 1,690</td></tr>
+          <tr><td class="cell-strong">Electric</td><td class="mono">38</td><td class="mono cell-strong">$ 1,204</td></tr>
+          <tr><td class="cell-strong">Engine</td><td class="mono">22</td><td class="mono cell-strong">$ 486</td></tr>
+        `
+      )}
+    </div>`;
+}
+
+function renderMarketing(root) {
+  root.innerHTML = headBlock("Marketing", "Promo codes and campaigns") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Promo codes</h2><p class="card-sub">Applied at storefront checkout</p></div>
+      <button class="btn btn-primary" id="newCodeBtn">＋ New code</button></div>
+      ${table(
+        ["Code", "Discount", "Scope", "Used", "State"],
+        `
+          <tr><td class="cell-strong mono">WELCOME10</td><td class="cell-strong">-10%</td><td class="cell-muted">all products</td><td class="mono">23</td><td>${pill("active", "green")}</td></tr>
+          <tr><td class="cell-strong mono">BRAKE15</td><td class="cell-strong">-15%</td><td class="cell-muted">brakes category</td><td class="mono">8</td><td>${pill("active", "green")}</td></tr>
+          <tr><td class="cell-strong mono">SUMMER25</td><td class="cell-strong">-25%</td><td class="cell-muted">all products</td><td class="mono">0</td><td>${pill("scheduled", "amber")}</td></tr>
+          <tr><td class="cell-strong mono">OLD5</td><td class="cell-strong">-5%</td><td class="cell-muted">all products</td><td class="mono">41</td><td>${pill("expired", "gray")}</td></tr>
+        `
+      )}
+    </div>`;
+  el("newCodeBtn").addEventListener("click", () => showToast("Promo code editor (demo)"));
+}
+
+/* ---------- Channels / Google Shopping ---------- */
+function renderChannels(root) {
+  root.innerHTML = headBlock("Channels", "Sales channels") + `
+    <div class="card">
+      <div class="card-head"><div><h2>Connected channels</h2><p class="card-sub">Where your catalog is sold</p></div></div>
+      ${table(
+        ["Channel", "State", "Products", "Notes"],
+        `
+          <tr><td class="cell-strong">🌐 lakassGo storefront</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">primary</td></tr>
+          <tr><td class="cell-strong">facebook.com</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">via catalog feed</td></tr>
+          <tr><td class="cell-strong">instagram.com</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">shop tab</td></tr>
+          <tr><td class="cell-strong">Google Shopping</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">merchant center</td></tr>
+        `
+      )}
+    </div>`;
 }
