@@ -1,240 +1,671 @@
-/* ================= lakassGo Admin — Design System ================= */
-:root {
-  --side: #2c3e50;
-  --side-2: #22303f;
-  --side-text: #b6c2cf;
-  --green: #22c55e;
-  --green-dark: #16a34a;
-  --blue: #2563eb;
-  --dark: #2c3e50;
-  --red: #e11d48;
-  --amber: #f59e0b;
-  --bg: #f4f6f8;
-  --card: #ffffff;
-  --line: #e5e9ef;
-  --ink: #15212e;
-  --muted: #6b7a89;
-  --radius: 12px;
-  --shadow: 0 1px 2px rgba(21, 33, 46, .05), 0 6px 18px rgba(21, 33, 46, .06);
+/* ================= lakassGo Admin — Application ================= */
+"use strict";
+
+/* ---------- Helpers ---------- */
+const el = (id) => document.getElementById(id);
+const $ = (sel, root = document) => root.querySelector(sel);
+const money = (n) => "$ " + n.toFixed(2);
+function table(headers, rowsHtml) {
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+function pill(text, color) {
+  return `<span class="pill pill-${color}">${text}</span>`;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-[hidden] { display: none !important; }
-html { height: 100%; }
-body {
-  font-family: "Inter", "Segoe UI", Tahoma, sans-serif;
-  color: var(--ink); background: var(--bg);
-  line-height: 1.55; min-height: 100vh;
-}
-img { max-width: 100%; display: block; }
-a { color: inherit; text-decoration: none; }
-button { font-family: inherit; cursor: pointer; border: none; background: none; }
-input, select { font-family: inherit; }
+/* ---------- Auth ---------- */
+const ADMIN_USER = "admin";
+const ADMIN_PASS = "LkG-2025-Admin!";
+const session = {
+  get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch { /* ignore */ } },
+  clear(k) { try { sessionStorage.removeItem(k); } catch { /* ignore */ } },
+};
 
-/* ---------- Login ---------- */
-.login-page {
-  display: grid; place-items: center; min-height: 100vh; padding: 20px;
-  background:
-    radial-gradient(800px 400px at 85% -10%, rgba(34, 197, 94, .14), transparent),
-    radial-gradient(700px 400px at 5% 110%, rgba(37, 99, 235, .12), transparent),
-    var(--bg);
+function showLogin() {
+  el("login").hidden = false;
+  el("app").hidden = true;
 }
-.login-card {
-  width: min(400px, 100%); background: var(--card); border: 1px solid var(--line);
-  border-radius: 16px; box-shadow: var(--shadow); padding: 34px 30px; text-align: center;
+function showApp() {
+  el("login").hidden = true;
+  el("app").hidden = false;
+  renderView("dashboard");
 }
-.login-card img { height: 52px; width: auto; margin: 0 auto 16px; }
-.login-card h1 { font-size: 21px; font-weight: 800; }
-.login-card > p { color: var(--muted); font-size: 14px; margin: 4px 0 22px; }
-.login-card label { display: block; text-align: left; font-size: 13px; font-weight: 700; margin-bottom: 14px; }
-.login-card input {
-  width: 100%; margin-top: 6px; padding: 11px 13px;
-  border: 1.5px solid var(--line); border-radius: 10px; font-size: 14px; color: var(--ink);
-  background: #fff;
+function initAuth() {
+  if (session.get("lkg_admin_session") === "1") showApp();
+  el("loginForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const u = el("loginUser").value.trim();
+    const p = el("loginPass").value;
+    if (u === ADMIN_USER && p === ADMIN_PASS) {
+      el("loginError").hidden = true;
+      el("loginPass").value = "";
+      session.set("lkg_admin_session", "1");
+      showApp();
+    } else {
+      el("loginError").hidden = false;
+    }
+  });
+  el("signOutBtn").addEventListener("click", () => {
+    session.clear("lkg_admin_session");
+    showLogin();
+  });
 }
-.login-card input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(37, 99, 235, .1); }
-.login-error {
-  background: rgba(225, 29, 72, .08); color: var(--red); font-size: 13px; font-weight: 600;
-  padding: 9px 12px; border-radius: 8px; margin-bottom: 14px; text-align: left;
-}
-.login-note { color: var(--muted); font-size: 12px; margin-top: 16px; }
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 11px 20px; border-radius: 999px; font-weight: 700; font-size: 14px; transition: .2s;
-}
-.btn-primary { background: var(--green); color: #fff; box-shadow: 0 8px 18px rgba(34, 197, 94, .28); }
-.btn-primary:hover { background: var(--green-dark); }
-.btn-block { width: 100%; }
-.btn-ghost { background: #fff; border: 1.5px solid var(--line); color: var(--ink); }
-.btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
 
-/* ---------- App shell ---------- */
-.app { display: flex; min-height: 100vh; }
-.sidebar {
-  width: 248px; flex-shrink: 0; background: var(--side); color: var(--side-text);
-  display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+/* ---------- Navigation ---------- */
+function switchView(name) {
+  document.querySelectorAll("[data-view]").forEach((b) => {
+    const active = b.dataset.view === name;
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-current", active ? "page" : "false");
+  });
+  document.querySelectorAll(".view").forEach((v) => {
+    v.classList.toggle("active", v.id === "view-" + name);
+  });
+  if (!RENDERED.has(name)) {
+    renderView(name);
+    RENDERED.add(name);
+  }
+  el("sidebar").classList.remove("open");
 }
-.side-brand {
-  display: flex; align-items: center; gap: 10px; padding: 16px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, .08);
+function initNav() {
+  document.querySelectorAll("[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => switchView(btn.dataset.view));
+  });
+  el("menuBtn").addEventListener("click", () => el("sidebar").classList.toggle("open"));
 }
-.side-brand img { height: 30px; width: auto; background: #fff; border-radius: 8px; padding: 3px 6px; }
-.side-brand strong { color: #fff; font-size: 14px; line-height: 1.3; }
-.side-brand small { display: block; font-size: 11px; font-weight: 400; color: var(--side-text); }
-.side-nav { flex: 1; padding: 12px 10px; display: grid; gap: 2px; align-content: start; }
-.side-nav h6 {
-  font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
-  color: #7d8fa0; padding: 12px 10px 4px; font-weight: 800;
-}
-.side-item {
-  display: flex; align-items: center; gap: 11px; width: 100%;
-  padding: 9px 12px; border-radius: 9px; font-size: 13.5px; font-weight: 500;
-  color: var(--side-text); text-align: left; transition: .15s;
-}
-.side-item span { font-size: 16px; width: 20px; text-align: center; }
-.side-item:hover { background: rgba(255, 255, 255, .06); color: #fff; }
-.side-item.active {
-  background: rgba(34, 197, 94, .16); color: #fff; font-weight: 700;
-  box-shadow: inset 3px 0 0 var(--green);
-}
-.side-foot { padding: 12px 18px; font-size: 11.5px; color: #7d8fa0; border-top: 1px solid rgba(255, 255, 255, .08); }
 
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.topbar {
-  position: sticky; top: 0; z-index: 40; background: #fff; border-bottom: 1px solid var(--line);
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  padding: 10px 22px; flex-wrap: wrap;
-}
-.topbar-left { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; }
-.menu-btn { display: none; font-size: 20px; padding: 4px 8px; }
-.conn { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; font-weight: 500; }
-.conn-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--green); box-shadow: 0 0 0 4px rgba(34, 197, 94, .18); }
-.topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.top-btn {
-  display: flex; align-items: center; gap: 8px; padding: 8px 13px;
-  border: 1.5px solid var(--line); border-radius: 999px; font-size: 13px; font-weight: 600; background: #fff;
-}
-.top-btn:hover { border-color: var(--blue); }
-.profile { display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 4px; }
-.avatar {
-  width: 34px; height: 34px; border-radius: 999px; background: var(--dark); color: #fff;
-  display: grid; place-items: center; font-weight: 800; font-size: 14px;
-}
-.profile .p-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
-.profile .p-name small { display: block; font-weight: 500; color: var(--muted); font-size: 11.5px; }
-.signout { color: var(--red); font-weight: 700; font-size: 13px; padding: 8px 12px; border-radius: 999px; }
-.signout:hover { background: rgba(225, 29, 72, .08); }
+/* ---------- Demo data ---------- */
+const ORDERS = [
+  { id: "#LKG-1042", customer: "Yassine B.", date: "Nov 25, 2026", total: 34.9, status: "pending" },
+  { id: "#LKG-1041", customer: "Salma E.", date: "Nov 25, 2026", total: 78.4, status: "processing" },
+  { id: "#LKG-1040", customer: "Omar T.", date: "Nov 24, 2026", total: 19.9, status: "shipped" },
+  { id: "#LKG-1039", customer: "Nadia K.", date: "Nov 24, 2026", total: 112.0, status: "delivered" },
+  { id: "#LKG-1038", customer: "Hamza R.", date: "Nov 23, 2026", total: 29.9, status: "delivered" },
+  { id: "#LKG-1037", customer: "Ilham M.", date: "Nov 23, 2026", total: 45.5, status: "shipped" },
+  { id: "#LKG-1036", customer: "Karim A.", date: "Nov 22, 2026", total: 44.9, status: "cancelled" },
+  { id: "#LKG-1035", customer: "Sofia L.", date: "Nov 22, 2026", total: 61.2, status: "delivered" },
+  { id: "#LKG-1034", customer: "Bilal Z.", date: "Nov 21, 2026", total: 17.9, status: "delivered" },
+  { id: "#LKG-1033", customer: "Rim D.", date: "Nov 21, 2026", total: 96.0, status: "processing" },
+];
+const STATUS_PILLS = {
+  pending: ["pending", "amber"],
+  processing: ["processing", "blue"],
+  shipped: ["shipped", "blue"],
+  delivered: ["delivered", "green"],
+  cancelled: ["cancelled", "red"],
+};
+const SHIPMENTS = [
+  { id: "TRK-77012", order: "#LKG-1041", carrier: "Amana Express", city: "Casablanca", status: "in transit" },
+  { id: "TRK-77009", order: "#LKG-1040", carrier: "CTM Messagerie", city: "Rabat", status: "in transit" },
+  { id: "TRK-77005", order: "#LKG-1039", carrier: "Amana Express", city: "Marrakech", status: "delivered" },
+  { id: "TRK-77001", order: "#LKG-1038", carrier: "DHL", city: "Tangier", status: "delivered" },
+  { id: "TRK-76996", order: "#LKG-1037", carrier: "Amana Express", city: "Fes", status: "delayed" },
+];
+const CHATS = [
+  { name: "Yassine B.", topic: "Does this pads set fit a Clio 4?", time: "2 min ago", unread: true },
+  { name: "Salma E.", topic: "Can I return the mirror if it doesn't match?", time: "18 min ago", unread: true },
+  { name: "Omar T.", topic: "Delivery time to Tangier?", time: "1 h ago", unread: true },
+  { name: "Nadia K.", topic: "Invoice request for #LKG-1039", time: "3 h ago", unread: false },
+  { name: "Hamza R.", topic: "Thanks, part received — great quality!", time: "Yesterday", unread: false },
+];
+const PRODUCTS = [
+  { name: "Ceramic Brake Pads — Front Set", cat: "brakes", price: 34.9, stock: 42 },
+  { name: "Vented Brake Discs — Pair", cat: "brakes", price: 58.0, stock: 18 },
+  { name: "Oil Filter (Universal Fit)", cat: "engine", price: 7.9, stock: 96 },
+  { name: "Air Filter — High Flow", cat: "engine", price: 12.5, stock: 54 },
+  { name: "12V 60Ah Battery", cat: "electric", price: 89.0, stock: 9 },
+  { name: "Headlight Bulb H7 — Pair", cat: "electric", price: 11.9, stock: 120 },
+  { name: "Shock Absorber — Front", cat: "suspension", price: 46.0, stock: 6 },
+  { name: "Wiper Blades Set 24\"/18\"", cat: "body", price: 15.9, stock: 33 },
+];
+const FEED_PLATFORMS = [
+  { name: "Google Shopping", items: 14, status: "active", last: "Today 03:00" },
+  { name: "Facebook Catalog", items: 14, status: "active", last: "Today 03:00" },
+  { name: "Instagram Shop", items: 14, status: "active", last: "Yesterday 23:40" },
+  { name: "Avito Pro (export)", items: 8, status: "paused", last: "Nov 20 12:00" },
+];
 
-.content { padding: 24px 22px 40px; display: grid; gap: 18px; align-content: start; flex: 1; }
-
-/* ---------- Views & cards ---------- */
-.view { display: grid; gap: 18px; }
-.view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.view-head h1 { font-size: 22px; font-weight: 800; }
-.view-head p { color: var(--muted); font-size: 13.5px; }
-.head-tools { display: flex; align-items: center; gap: 10px; }
-.head-tools select {
-  padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--line); font-size: 13.5px; background: #fff;
+/* ---------- Dashboard ---------- */
+const DATA_RANGES = {
+  labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  base: [96, 124, 141, 118, 152, 189, 135],
+};
+function renderDashboard() {
+  const root = el("view-dashboard");
+  const bars = DATA_RANGES.base
+    .map((v, i) => `
+      <div class="bar-col">
+        <div class="bar-tip">${v} sessions</div>
+        <div class="bar" style="height:${(v / 200) * 100}%"></div>
+        <span class="bar-label">${DATA_RANGES.labels[i]}</span>
+      </div>`)
+    .join("");
+  root.innerHTML = `
+    <div class="view-head">
+      <div><h1>Dashboard</h1><p>Store activity overview</p></div>
+      <select class="select" id="rangeSel" aria-label="Time range">
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last 365 days</option>
+      </select>
+    </div>
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Sessions</div><div class="stat-value" id="stSessions">955</div><div class="stat-delta up">↑ 87.7%</div><div class="stat-note" id="stSessionsNote">vs previous period</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Page views</div><div class="stat-value" id="stViews">1,111</div><div class="stat-delta up">↑ 61.4%</div><div class="stat-note" id="stViewsNote">vs previous period</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Conversion rate</div><div class="stat-value" id="stConv">0.2%</div><div class="stat-delta down">↓ 0.1 pts</div><div class="stat-note" id="stConvNote">0 sessions that ordered</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Revenue</div><div class="stat-value" id="stRev">$ 0.00</div><div class="stat-delta down">↓ 100%</div><div class="stat-note" id="stRevNote">no orders in period</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Sessions by day</h2><p class="card-sub">Last 7 days</p></div></div>
+      <div class="bars" id="barChart">${bars}</div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-head"><div><h2>Top pages</h2><p class="card-sub">Most viewed pages</p></div></div>
+        ${table(
+          ["Page", "Views", "Visitors"],
+          `
+            <tr><td class="cell-strong">index.html</td><td class="mono">812</td><td class="mono">431</td></tr>
+            <tr><td class="cell-strong">/#brakes</td><td class="mono">204</td><td class="mono">133</td></tr>
+            <tr><td class="cell-strong">/#engine</td><td class="mono">95</td><td class="mono">61</td></tr>
+          `
+        )}
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h2>Traffic sources</h2><p class="card-sub">Where visitors come from</p></div></div>
+        ${table(
+          ["Source", "Sessions", "Share"],
+          `
+            <tr><td class="cell-strong">Direct / none</td><td class="mono">388</td><td class="mono">40.6%</td></tr>
+            <tr><td class="cell-strong">facebook.com</td><td class="mono">241</td><td class="mono">25.2%</td></tr>
+            <tr><td class="cell-strong">instagram.com</td><td class="mono">133</td><td class="mono">13.9%</td></tr>
+          `
+        )}
+      </div>
+    </div>`;
+  el("rangeSel").addEventListener("change", (e) => {
+    const days = Number(e.target.value);
+    const scale = days / 7;
+    const total = Math.round(DATA_RANGES.base.reduce((s, v) => s + v, 0) * scale);
+    el("stSessions").textContent = total.toLocaleString("en-US");
+    el("stViews").textContent = (total * 12).toLocaleString("en-US");
+    el("stViewsNote").textContent = "12 pages per session";
+    const ordered = Math.max(1, Math.round(total * 0.002));
+    el("stConv").textContent = "0.2%";
+    el("stConvNote").textContent = ordered + " sessions that ordered";
+    el("stRev").textContent = "$ " + (ordered * 29.74).toFixed(2);
+  });
 }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-.card-pad { padding: 18px; }
-.card h2 { font-size: 15.5px; font-weight: 800; }
-.card .card-sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
-.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
 
-.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-.stat-card { padding: 18px; position: relative; overflow: hidden; }
-.stat-card::before { content: ""; position: absolute; top: 0; inset-inline-start: 0; width: 5px; height: 100%; }
-.stat-green::before { background: var(--green); }
-.stat-blue::before { background: var(--blue); }
-.stat-dark::before { background: var(--dark); }
-.stat-red::before { background: var(--red); }
-.stat-label { color: var(--muted); font-size: 12.5px; font-weight: 700; letter-spacing: .02em; }
-.stat-value { font-size: 26px; font-weight: 800; margin: 4px 0 2px; }
-.stat-delta { font-size: 12.5px; font-weight: 700; }
-.stat-delta.up { color: var(--green); }
-.stat-delta.down { color: var(--red); }
-.stat-delta.flat { color: var(--muted); }
-.stat-note { color: var(--muted); font-size: 12px; }
+/* ---------- Orders ---------- */
+function renderOrders(root) {
+  root.innerHTML = headBlock("Orders", "Recent customer orders");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>All orders</h2><p class="card-sub">${ORDERS.length} orders</p></div>
+      <button class="btn btn-primary" id="newOrderBtn">＋ New order</button></div>
+      ${table(
+        ["Order", "Customer", "Date", "Total", "Status", "Actions"],
+        ORDERS.map((o) => {
+          const p = STATUS_PILLS[o.status];
+          return `
+            <tr>
+              <td class="mono cell-strong">${o.id}</td>
+              <td class="cell-strong">${o.customer}</td>
+              <td class="cell-muted">${o.date}</td>
+              <td class="mono cell-strong">${money(o.total)}</td>
+              <td>${pill(p[0], p[1])}</td>
+              <td><button class="btn btn-ghost" data-act="view">View</button> <button class="btn btn-ghost" data-act="invoice">Invoice</button></td>
+            </tr>`;
+        }).join("")
+      )}
+    </div>`);
+  el("newOrderBtn").addEventListener("click", () => showToast("New order form (demo)"));
+  root.querySelectorAll("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => showToast(b.dataset.act === "view" ? "Order details (demo)" : "Invoice (demo)"))
+  );
+}
 
-.grid-2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
+/* ---------- Delivery ---------- */
+function renderDelivery(root) {
+  root.innerHTML = headBlock("Delivery", "Shipments and couriers");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Active shipments</h2><p class="card-sub">Live tracking</p></div></div>
+      ${table(
+        ["Tracking", "Order", "Carrier", "City", "Status"],
+        SHIPMENTS.map((s) => {
+          const map = { "in transit": "blue", delivered: "green", delayed: "red" };
+          return `
+            <tr>
+              <td class="mono cell-strong">${s.id}</td>
+              <td class="mono cell-muted">${s.order}</td>
+              <td class="cell-strong">${s.carrier}</td>
+              <td class="cell-muted">${s.city}</td>
+              <td>${pill(s.status, map[s.status])}</td>
+            </tr>`;
+        }).join("")
+      )}
+    </div>`);
+}
 
-/* ---------- Chart ---------- */
-.bar-chart { display: flex; align-items: flex-end; gap: 10px; height: 220px; padding: 12px 0 4px; }
-.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
-.bar {
-  width: 100%; max-width: 46px; border-radius: 7px 7px 3px 3px;
-  background: linear-gradient(180deg, #4ade80, var(--green-dark));
-  transition: height .3s ease; position: relative;
+/* ---------- Chat ---------- */
+function renderChat(root) {
+  root.innerHTML = headBlock("Chat", "Customer messages");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Inbox</h2><p class="card-sub">${CHATS.filter((c) => c.unread).length} unread</p></div></div>
+      ${table(
+        ["Customer", "Message", "Received", ""],
+        CHATS.map((c) => `
+          <tr>
+            <td class="cell-strong">${c.unread ? "🔵 " : ""}${c.name}</td>
+            <td class="cell-muted">${c.topic}</td>
+            <td class="cell-muted">${c.time}</td>
+            <td><button class="btn btn-ghost" data-act="reply">Reply</button></td>
+          </tr>`).join("")
+      )}
+    </div>`);
+  root.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => showToast("Chat opened (demo)")));
 }
-.bar-col:hover .bar { filter: brightness(1.06); }
-.bar-tip {
-  position: absolute; top: -24px; inset-inline-start: 50%; transform: translateX(-50%);
-  background: var(--dark); color: #fff; font-size: 11px; font-weight: 700;
-  padding: 2px 8px; border-radius: 999px; white-space: nowrap; opacity: 0; pointer-events: none; transition: .15s;
-}
-.bar-col:hover .bar-tip { opacity: 1; }
-.bar-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
 
-/* ---------- Tables ---------- */
-.table-wrap { overflow-x: auto; padding: 8px 6px 10px; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-th {
-  text-align: left; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted); font-weight: 800; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap;
+/* ---------- Products ---------- */
+function renderProducts(root) {
+  root.innerHTML = headBlock("Products", "Catalog you sell");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>All products</h2><p class="card-sub">${PRODUCTS.length} items</p></div>
+      <button class="btn btn-primary" id="newProductBtn">＋ Add product</button></div>
+      ${table(
+        ["Product", "Category", "Price", "Stock", "Actions"],
+        PRODUCTS.map((p) => `
+          <tr>
+            <td class="cell-strong">${p.name}</td>
+            <td class="cell-muted">${p.cat}</td>
+            <td class="mono cell-strong">${money(p.price)}</td>
+            <td class="mono">${p.stock}</td>
+            <td><button class="btn btn-ghost" data-act="edit">Edit</button> <button class="btn btn-ghost" data-act="del">Delete</button></td>
+          </tr>`).join("")
+      )}
+    </div>`);
+  el("newProductBtn").addEventListener("click", () => showToast("Product editor (demo)"));
+  root.querySelectorAll("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => showToast(b.dataset.act === "edit" ? "Edit product (demo)" : "Delete product (demo)"))
+  );
 }
-td { padding: 11px 12px; border-bottom: 1px solid #eef1f5; vertical-align: middle; }
-tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover { background: #f8fafc; }
-.mono { font-variant-numeric: tabular-nums; }
-.cell-strong { font-weight: 700; }
-.cell-muted { color: var(--muted); font-size: 12.5px; }
-.row-art { font-size: 22px; margin-inline-end: 10px; }
 
-.pill {
-  display: inline-block; padding: 3px 11px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 700; white-space: nowrap;
+/* ---------- Inventory ---------- */
+function renderInventory(root) {
+  root.innerHTML = headBlock("Inventory", "Stock levels");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Stock levels</h2><p class="card-sub">Low stock highlights &lt; 10 units</p></div></div>
+      ${table(
+        ["Product", "Stock", "Level", "State"],
+        PRODUCTS.map((p) => {
+          const pct = Math.min(100, p.stock * 3);
+          const low = p.stock < 10;
+          return `
+            <tr>
+              <td class="cell-strong">${p.name}</td>
+              <td class="mono">${p.stock}</td>
+              <td><div class="meter"><div class="meter-fill ${low ? "low" : ""}" style="width:${pct}%"></div></div></td>
+              <td>${pill(low ? "low stock" : "healthy", low ? "red" : "green")}</td>
+            </tr>`;
+        }).join("")
+      )}
+    </div>`);
 }
-.pill-green { background: rgba(34, 197, 94, .12); color: var(--green-dark); }
-.pill-blue { background: rgba(37, 99, 235, .1); color: var(--blue); }
-.pill-amber { background: rgba(245, 158, 11, .14); color: #b45309; }
-.pill-red { background: rgba(225, 29, 72, .1); color: var(--red); }
-.pill-gray { background: #eef1f5; color: var(--muted); }
 
-.chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.chip {
-  padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--line);
-  font-size: 12.5px; font-weight: 600; background: #fff; color: var(--ink-2, #334155);
+/* ---------- Catalogue / Slider / Reporting / Marketing ---------- */
+function renderCatalogue(root) {
+  root.innerHTML = headBlock("Catalogue", "Storefront product display");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Catalogue status</h2><p class="card-sub">Products visible on the storefront</p></div>
+      <button class="btn btn-ghost">↻ Rebuild catalogue</button></div>
+      ${table(
+        ["Category", "Products", "Visibility"],
+        `
+          <tr><td class="cell-strong">Brakes</td><td class="mono">2</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Engine</td><td class="mono">2</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Electric</td><td class="mono">2</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Suspension</td><td class="mono">1</td><td>${pill("visible", "green")}</td></tr>
+          <tr><td class="cell-strong">Body</td><td class="mono">1</td><td>${pill("visible", "green")}</td></tr>
+        `
+      )}
+    </div>`);
 }
-.chip:hover { border-color: var(--blue); color: var(--blue); }
-.chip.active { background: var(--dark); border-color: var(--dark); color: #fff; }
 
-/* ---------- Misc widgets ---------- */
-.tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.tile { padding: 16px; display: flex; gap: 13px; align-items: center; }
-.tile-ico { font-size: 26px; }
-.tile h3 { font-size: 14px; font-weight: 800; }
-.tile p { color: var(--muted); font-size: 12.5px; }
-.tile .pill { margin-inline-start: auto; }
-.progress { height: 8px; background: #eef1f5; border-radius: 999px; overflow: hidden; }
-.progress > span { display: block; height: 100%; border-radius: 999px; background: var(--green); }
-.kv { display: flex; justify-content: space-between; font-size: 13.5px; padding: 7px 0; }
-.kv span { color: var(--muted); }
-.kv strong { font-variant-numeric: tabular-nums; }
-.list-clean { list-style: none; display: grid; gap: 10px; }
-.list-clean li {
-  display: flex; align-items: center; gap: 11px; padding: 11px 13px;
-  border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px;
+function renderSlider(root) {
+  root.innerHTML = headBlock("Slider", "Homepage hero banners");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Homepage slider</h2><p class="card-sub">Hero banner slides</p></div>
+      <button class="btn btn-primary" id="newSlideBtn">＋ Add slide</button></div>
+      ${table(
+        ["Slide", "Title", "Order", "Visible", "Actions"],
+        `
+          <tr><td class="cell-strong">Slide 1</td><td class="cell-muted">Genuine parts, delivered fast</td><td class="mono">1</td><td>${pill("active", "green")}</td><td><button class="btn btn-ghost" data-act="edit">Edit</button></td></tr>
+          <tr><td class="cell-strong">Slide 2</td><td class="cell-muted">Brakes &amp; suspension up to -40%</td><td class="mono">2</td><td>${pill("active", "green")}</td><td><button class="btn btn-ghost" data-act="edit">Edit</button></td></tr>
+          <tr><td class="cell-strong">Slide 3</td><td class="cell-muted">New: batteries in stock</td><td class="mono">3</td><td>${pill("hidden", "gray")}</td><td><button class="btn btn-ghost" data-act="edit">Edit</button></td></tr>
+        `
+      )}
+    </div>`);
+  el("newSlideBtn").addEventListener("click", () => showToast("Slide editor (demo)"));
+  root.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => showToast("Edit slide (demo)")));
 }
-.list-clean .badge { margin-inline-start: auto; font-size: 11.5px; }
 
-@media (max-width: 1120px) {
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .grid-2, .tile-grid { grid-template-columns: 1fr; }
+function renderReporting(root) {
+  root.innerHTML = headBlock("Reporting", "Sales reports");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Orders (30d)</div><div class="stat-value">118</div><div class="stat-delta up">↑ 9.2%</div><div class="stat-note">vs 108 previous</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Items sold</div><div class="stat-value">246</div><div class="stat-delta up">↑ 11.7%</div><div class="stat-note">2.1 per order</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Avg order</div><div class="stat-value">$ 29.74</div><div class="stat-delta down">↓ 1.8%</div><div class="stat-note">per checkout</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Refunds</div><div class="stat-value">3</div><div class="stat-note">2.5% of orders</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Sales by category</h2><p class="card-sub">Last 30 days</p></div></div>
+      ${table(
+        ["Category", "Orders", "Revenue"],
+        `
+          <tr><td class="cell-strong">Brakes</td><td class="mono">51</td><td class="mono cell-strong">$ 1,690</td></tr>
+          <tr><td class="cell-strong">Electric</td><td class="mono">38</td><td class="mono cell-strong">$ 1,204</td></tr>
+          <tr><td class="cell-strong">Engine</td><td class="mono">22</td><td class="mono cell-strong">$ 486</td></tr>
+        `
+      )}
+    </div>`);
 }
-@media (max-width: 900px) {
-  .sidebar { position: fixed; z-index: 60; inset-inline-start: 0; transform: translateX(-100%); transition: .25s; }
-  .sidebar.open { transform: none; }
-  .menu-btn { display: block; }
-  .topbar-right .manage-wrap, .topbar-right .lang-wrap { display: none; }
+
+function renderMarketing(root) {
+  root.innerHTML = headBlock("Marketing", "Promo codes and campaigns");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Promo codes</h2><p class="card-sub">Applied at storefront checkout</p></div>
+      <button class="btn btn-primary" id="newCodeBtn">＋ New code</button></div>
+      ${table(
+        ["Code", "Discount", "Scope", "Used", "State"],
+                `
+          <tr><td class="cell-strong mono">WELCOME10</td><td class="cell-strong">-10%</td><td class="cell-muted">all products</td><td class="mono">23</td><td>${pill("active", "green")}</td></tr>
+          <tr><td class="cell-strong mono">BRAKE15</td><td class="cell-strong">-15%</td><td class="cell-muted">brakes category</td><td class="mono">8</td><td>${pill("active", "green")}</td></tr>
+          <tr><td class="cell-strong mono">SUMMER25</td><td class="cell-strong">-25%</td><td class="cell-muted">all products</td><td class="mono">0</td><td>${pill("scheduled", "amber")}</td></tr>
+          <tr><td class="cell-strong mono">OLD5</td><td class="cell-strong">-5%</td><td class="cell-muted">all products</td><td class="mono">41</td><td>${pill("expired", "gray")}</td></tr>
+        `
+      )}
+    </div>`);
+  el("newCodeBtn").addEventListener("click", () => showToast("Promo code editor (demo)"));
 }
+
+/* ---------- Channels / Google Shopping ---------- */
+function renderChannels(root) {
+  root.innerHTML = headBlock("Channels", "Sales channels");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Connected channels</h2><p class="card-sub">Where your catalog is sold</p></div></div>
+      ${table(
+        ["Channel", "State", "Products", "Notes"],
+        `
+          <tr><td class="cell-strong">🌐 lakassGo storefront</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">primary</td></tr>
+          <tr><td class="cell-strong">facebook.com</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">via catalog feed</td></tr>
+          <tr><td class="cell-strong">instagram.com</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">shop tab</td></tr>
+          <tr><td class="cell-strong">Google Shopping</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">merchant center</td></tr>
+        `
+      )}
+    </div>`);
+}
+
+function renderGshopping(root) {
+  root.innerHTML = headBlock("Google Shopping", "Product feed & Merchant Center");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Merchant Center sync</h2><p class="card-sub">Feed lakassgo.com/data/products.xml</p></div>
+      <button class="btn btn-ghost">↻ Sync now</button></div>
+      ${table(
+        ["Product", "ID", "Price", "Approval"],
+        PRODUCTS.slice(0, 5).map((p, i) => `
+          <tr>
+            <td><strong>${p.name}</strong></td>
+            <td class="mono cell-muted">LKG-${100 + i}</td>
+            <td class="mono cell-strong">${money(p.price)}</td>
+            <td>${pill(p.stock ? "approved" : "disapproved — no stock", p.stock ? "green" : "red")}</td>
+          </tr>`).join("")
+      )}
+    </div>
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Approved items</div><div class="stat-value">13</div><div class="stat-note">of 14 submitted</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Impressions (7d)</div><div class="stat-value">24,318</div><div class="stat-delta up">↑ 31%</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Clicks (7d)</div><div class="stat-value">617</div><div class="stat-delta up">↑ 22%</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Disapprovals</div><div class="stat-value">1</div><div class="stat-note">fix stock or hide</div></div>
+    </div>`);
+}
+
+function renderFeed(root) {
+  root.innerHTML = headBlock("Daily catalogue feed", "Automated catalog export to marketplaces");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Run history</h2><p class="card-sub">Last executions</p></div>
+      <button class="btn btn-primary" id="runFeedBtn">▶ Run feed now</button></div>
+      ${table(
+        ["Run", "Started", "Items", "Result"],
+        `
+          <tr><td class="cell-strong">#412</td><td class="cell-muted">Today 03:00</td><td class="mono">14</td><td>${pill("success", "green")}</td></tr>
+          <tr><td class="cell-strong">#411</td><td class="cell-muted">Yesterday 03:00</td><td class="mono">14</td><td>${pill("success", "green")}</td></tr>
+          <tr><td class="cell-strong">#410</td><td class="cell-muted">Nov 24 03:00</td><td class="mono">13</td><td>${pill("partial — 1 skipped", "amber")}</td></tr>
+          <tr><td class="cell-strong">#409</td><td class="cell-muted">Nov 23 03:00</td><td class="mono">14</td><td>${pill("success", "green")}</td></tr>
+        `
+      )}
+    </div>
+    <ul class="list-clean">
+      <li>🔗 <strong>Feed URL:</strong> <span class="mono cell-muted" id="feedUrl">https://www.lakassgo.com/data/products.xml</span>${pill("copy on click", "blue")}</li>
+      <li>🕒 <strong>Schedule:</strong> daily 03:00 GMT+1 ${pill("active", "green")}</li>
+    </ul>`);
+  root.querySelector("#runFeedBtn").addEventListener("click", (e) => {
+    e.target.textContent = "✓ Feeder queued (demo)";
+    e.target.disabled = true;
+  });
+  root.querySelector("#feedUrl").addEventListener("click", () => showToast("Feed URL copied (demo)"));
+}
+
+function renderIntelligence(root) {
+  root.innerHTML = headBlock("Intelligence", "Automatic insights from store data");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="tile-grid">
+      <div class="card tile"><span class="tile-ico">🔥</span><div><h3>Trending: brake pads</h3><p>Searches ↑ 47% this week — consider extra stock</p></div>${pill("opportunity", "green")}</div>
+      <div class="card tile"><span class="tile-ico">⚠️</span><div><h3>Stock risk: shock absorbers</h3><p>6 left • weekly sales ×1.8 — restock now</p></div>${pill("urgent", "red")}</div>
+      <div class="card tile"><span class="tile-ico">💤</span><div><h3>Dormant: phone mounts</h3><p>0 sales in 30 days — consider promo</p></div>${pill("review", "amber")}</div>
+      <div class="card tile"><span class="tile-ico">🏆</span><div><h3>Best bundle: pads + discs</h3><p>Bought together in 62% of brake orders</p></div>${pill("bundle idea", "blue")}</div>
+      <div class="card tile"><span class="tile-ico">📍</span><div><h3>Demand zone: Casa → Rabat</h3><p>68% of orders — beta delivery lane proposed</p></div>${pill("ops", "blue")}</div>
+      <div class="card tile"><span class="tile-ico">💰</span><div><h3>Margin watch: batteries</h3><p>Supplier price ↑ 6% — margin now 31%</p></div>${pill("monitor", "amber")}</div>
+    </div>`);
+}
+
+function renderStrategy(root) {
+  root.innerHTML = headBlock("360 Strategy Engine", "Suggested actions from the strategy engine");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>This week's strategy queue</h2><p class="card-sub">Accept or dismiss suggestions</p></div></div>
+      ${table(
+        ["Action", "Expected impact", "Effort", "Decision"],
+        `
+          <tr><td class="cell-strong">Promote tire-set bundle before summer</td><td class="cell-muted">+15% tire revenue</td><td class="mono">low</td>
+            <td><button class="btn btn-ghost" data-act="accept">Accept</button> <button class="btn btn-ghost" data-act="dismiss">Dismiss</button></td></tr>
+          <tr><td class="cell-strong">Add APIs for Renault car-part numbers</td><td class="cell-muted">vehicle-match on 40% more cars</td><td class="mono">medium</td>
+            <td><button class="btn btn-ghost" data-act="accept">Accept</button> <button class="btn btn-ghost" data-act="dismiss">Dismiss</button></td></tr>
+          <tr><td class="cell-strong">Open second depot in Rabat</td><td class="cell-muted">-12h avg delivery for 68% of buyers</td><td class="mono">high</td>
+            <td><button class="btn btn-ghost" data-act="accept">Accept</button> <button class="btn btn-ghost" data-act="dismiss">Dismiss</button></td></tr>
+        `
+      )}
+    </div>`);
+  root.querySelectorAll("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => (b.textContent = "✓ done (demo)"))
+  );
+}
+
+function renderFinance(root) {
+  root.innerHTML = headBlock("Finance", "Revenue, costs and payouts");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Revenue (30d)</div><div class="stat-value">$ 1,844</div><div class="stat-delta up">↑ 12.4%</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Cost of goods</div><div class="stat-value">$ 1,102</div><div class="stat-note">59.8% of revenue</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Margin</div><div class="stat-value">40.2%</div><div class="stat-delta up">↑ 1.1 pts</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Pending payout</div><div class="stat-value">$ 431</div><div class="stat-note">next batch Friday</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Payouts</h2><p class="card-sub">Seller settlements</p></div></div>
+      ${table(
+        ["Batch", "Period", "Net", "Method", "Status"],
+        `
+          <tr><td class="cell-strong">PO-1121</td><td class="cell-muted">Nov 17 – Nov 23</td><td class="mono cell-strong">$ 431</td><td class="cell-muted">Bank transfer</td><td>${pill("pending", "amber")}</td></tr>
+          <tr><td class="cell-strong">PO-1114</td><td class="cell-muted">Nov 10 – Nov 16</td><td class="mono cell-strong">$ 388</td><td class="cell-muted">Bank transfer</td><td>${pill("paid", "green")}</td></tr>
+          <tr><td class="cell-strong">PO-1107</td><td class="cell-muted">Nov 3 – Nov 9</td><td class="mono cell-strong">$ 352</td><td class="cell-muted">Rpay wallet</td><td>${pill("paid", "green")}</td></tr>
+        `
+      )}
+    </div>`);
+}
+
+function renderRpay(root) {
+  root.innerHTML = headBlock("Rpay", "Online payment transactions");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Transactions</h2><p class="card-sub">Card &amp; wallet payments via Rpay</p></div></div>
+      ${table(
+        ["Transaction", "Order", "Amount", "Method", "Result"],
+        `
+          <tr><td class="cell-strong mono">TX-88213</td><td class="cell-muted">#LKG-1042</td><td class="mono cell-strong">$ 34.90</td><td class="cell-muted">VISA •• 4417</td><td>${pill("captured", "green")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88197</td><td class="cell-muted">#LKG-1038</td><td class="mono cell-strong">$ 29.90</td><td class="cell-muted">Mastercard •• 2203</td><td>${pill("captured", "green")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88170</td><td class="cell-muted">#LKG-1036</td><td class="mono cell-strong">$ 44.90</td><td class="cell-muted">Wallet</td><td>${pill("refunded", "gray")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88144</td><td class="cell-muted">#LKG-1034</td><td class="mono cell-strong">$ 17.90</td><td class="cell-muted">VISA •• 9081</td><td>${pill("captured", "green")}</td></tr>
+          <tr><td class="cell-strong mono">TX-88120</td><td class="cell-muted">#LKG-1031</td><td class="mono cell-strong">$ 58.90</td><td class="cell-muted">VISA •• 3356</td><td>${pill("declined", "red")}</td></tr>
+        `
+      )}
+    </div>
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Captured (30d)</div><div class="stat-value">$ 1,312</div><div class="stat-note">31 transactions</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Auth rate</div><div class="stat-value">94%</div><div class="stat-note">of attempts</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Chargebacks</div><div class="stat-value">0</div><div class="stat-note">nothing open</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Fees (30d)</div><div class="stat-value">$ 27.90</div><div class="stat-note">1.9% + fixed</div></div>
+    </div>`);
+}
+
+function renderProcurement(root) {
+  root.innerHTML = headBlock("Procurement", "Supplier orders and restocks");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card">
+      <div class="card-head"><div><h2>Supplier purchase orders</h2><p class="card-sub">Inbound stock</p></div>
+      <button class="btn btn-primary">＋ New PO</button></div>
+      ${table(
+        ["PO", "Supplier", "Items", "Total", "Status"],
+        `
+          <tr><td class="cell-strong">PO-2201</td><td class="cell-muted">Mecadis SARL</td><td class="mono">bushings ×40</td><td class="mono cell-strong">$ 612</td><td>${pill("in transit", "blue")}</td></tr>
+          <tr><td class="cell-strong">PO-2200</td><td class="cell-muted">AutoParts Atlas</td><td class="mono">shocks ×24</td><td class="mono cell-strong">$ 742</td><td>${pill("confirmed", "green")}</td></tr>
+          <tr><td class="cell-strong">PO-2199</td><td class="cell-muted">Batterie Plus</td><td class="mono">batteries ×12</td><td class="mono cell-strong">$ 690</td><td>${pill("draft", "gray")}</td></tr>
+          <tr><td class="cell-strong">PO-2198</td><td class="cell-muted">Mecadis SARL</td><td class="mono">pads ×60</td><td class="mono cell-strong">$ 1,104</td><td>${pill("received", "green")}</td></tr>
+        `
+      )}
+    </div>
+    <ul class="list-clean">
+      <li>🏭 <strong>Mecadis SARL</strong> — lead time 4 days, 96% fill rate ${pill("preferred", "green")}</li>
+      <li>🏭 <strong>AutoParts Atlas</strong> — lead time 6 days, 89% fill rate ${pill("backup", "gray")}</li>
+      <li>🏭 <strong>Batterie Plus</strong> — lead time 3 days, warranty 24 mo ${pill("specialty", "blue")}</li>
+    </ul>`);
+}
+
+function renderStore(root) {
+  root.innerHTML = headBlock("Public store", "Your live storefront");
+  root.insertAdjacentHTML("beforeend", `
+    <div class="card card-pad">
+      <h2>lakassGo storefront</h2>
+      <p class="card-sub">Opens the public site in a new tab</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+        <a class="btn btn-primary" href="https://www.lakassgo.com" target="_blank" rel="noopener">🌐 www.lakassgo.com</a>
+        <a class="btn btn-ghost" href="index.html" target="_blank" rel="noopener">Preview locally →</a>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="card stat-card stat-green"><div class="stat-label">Store status</div><div class="stat-value">Live</div><div class="stat-note">HTTPS enforced</div></div>
+      <div class="card stat-card stat-blue"><div class="stat-label">Uptime (30d)</div><div class="stat-value">99.98%</div><div class="stat-note">static hosting</div></div>
+      <div class="card stat-card stat-dark"><div class="stat-label">Catalog on site</div><div class="stat-value">14</div><div class="stat-note">parts live</div></div>
+      <div class="card stat-card stat-red"><div class="stat-label">Incidents</div><div class="stat-value">0</div><div class="stat-note">nothing open</div></div>
+    </div>`);
+}
+
+const headBlock = (title, sub) => `
+  <div class="view-head">
+    <div><h1>${title}</h1><p>${sub}</p></div>
+  </div>`;
+
+/* ---------- Render dispatch ---------- */
+const RENDERERS = {
+  dashboard: () => renderDashboard(),
+  orders: (root) => renderOrders(root),
+  delivery: (root) => renderDelivery(root),
+  chat: (root) => renderChat(root),
+  products: (root) => renderProducts(root),
+  inventory: (root) => renderInventory(root),
+  catalogue: (root) => renderCatalogue(root),
+  slider: (root) => renderSlider(root),
+  reporting: (root) => renderReporting(root),
+  marketing: (root) => renderMarketing(root),
+  channels: (root) => renderChannels(root),
+  gshopping: (root) => renderGshopping(root),
+  feed: (root) => renderFeed(root),
+  intelligence: (root) => renderIntelligence(root),
+  strategy: (root) => renderStrategy(root),
+  finance: (root) => renderFinance(root),
+  rpay: (root) => renderRpay(root),
+  procurement: (root) => renderProcurement(root),
+  store: (root) => renderStore(root),
+};
+function renderView(name) {
+  const root = el("view-" + name);
+  if (!root || !RENDERERS[name]) return;
+  RENDERERS[name](root);
+}
+
+/* ---------- Toast ---------- */
+let toastTimer;
+function showToast(msg) {
+  let t = el("toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast";
+    t.style.cssText =
+      "position:fixed;bottom:24px;inset-inline-start:50%;transform:translateX(-50%);" +
+      "background:#2c3e50;color:#fff;padding:11px 22px;border-radius:999px;font-size:13.5px;" +
+      "font-weight:700;z-index:200;box-shadow:0 12px 30px rgba(21,33,46,.3);";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.remove(), 2400);
+}
+
+/* ---------- Range selector ---------- */
+function initRanges() {
+  el("rangeSel").addEventListener("change", (e) => {
+    const days = Number(e.target.value);
+    const scale = days / 7;
+    const total = Math.round(DATA_RANGES.base.reduce((s, v) => s + v, 0) * scale);
+    el("stSessions").textContent = total.toLocaleString("en-US");
+    el("stViews").textContent = (total * 12).toLocaleString("en-US");
+    el("stViewsNote").textContent = "12 pages per session";
+    const ordered = Math.max(1, Math.round(total * 0.002));
+    el("stConv").textContent = "0.2%";
+    el("stConvNote").textContent = ordered + " sessions that ordered";
+    el("stRev").textContent = "$ " + (ordered * 29.74).toFixed(2);
+  });
+}
+
+/* ---------- Boot ---------- */
+initAuth();
+initNav();
+initRanges();
+el("year").textContent = new Date().getFullYear();
