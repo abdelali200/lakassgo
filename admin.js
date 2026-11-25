@@ -143,7 +143,13 @@ function loadProducts() {
   return PRODUCT_SEEDS.map((p) => ({ ...p }));
 }
 function saveProducts() {
-  try { localStorage.setItem("lkg_admin_products", JSON.stringify(PRODUCTS)); } catch { /* ignore */ }
+  try {
+    localStorage.setItem("lkg_admin_products", JSON.stringify(PRODUCTS));
+    return true;
+  } catch {
+    showToast("Storage full — remove some photos");
+    return false;
+  }
 }
 let PRODUCTS = loadProducts();
 function refreshProductViews() {
@@ -255,7 +261,7 @@ function renderProducts(root) {
           const low = p.stock < 10;
           return `
             <tr>
-              <td class="cell-strong"><span class="row-art">${p.icon || "📦"}</span>${p.name}</td>
+              <td class="cell-strong"><span class="row-art">${(p.photos && p.photos.length) ? `<img class="row-thumb" src="${p.photos[0]}" alt="" />` : (p.icon || "📦")}</span>${p.name}</td>
               <td class="cell-muted">${p.cat}</td>
               <td class="mono cell-strong">${money(p.price)}</td>
               <td class="mono">${p.stock}</td>
@@ -287,8 +293,55 @@ function renderProducts(root) {
   );
 }
 
+let modalPhotos = [];
+function paintPmGallery() {
+  const g = el("pmGallery");
+  if (!g) return;
+  g.innerHTML = modalPhotos.length
+    ? modalPhotos.map((src, i) => `
+        <div class="pm-thumb"><img src="${src}" alt="" /><button type="button" data-rm="${i}" aria-label="Remove photo">✕</button></div>`).join("")
+    : `<span class="pm-empty">No photos yet — add some below</span>`;
+}
+function fileToPhotoDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      const img = new Image();
+      let settled = false;
+      const fallback = () => {
+        if (!settled) { settled = true; resolve(dataUrl); }
+      };
+      img.onload = () => {
+        if (settled) return;
+        settled = true;
+        try {
+          const max = 480;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("no canvas");
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        } catch {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = fallback;
+      setTimeout(fallback, 1200);
+      img.src = dataUrl;
+    };
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
 function openProductModal(index) {
   editingIndex = index;
+  modalPhotos = index === null ? [] : [...(PRODUCTS[index].photos || [])];
   let modal = el("productModal");
   if (!modal) {
     modal = document.createElement("div");
@@ -315,15 +368,22 @@ function openProductModal(index) {
                 <option value="other">Other</option>
               </select>
             </label>
-            <label class="form-field">Icon (emoji)
-              <input type="text" id="pmIcon" maxlength="4" placeholder="📦" />
-            </label>
             <label class="form-field">Price ($)
               <input type="number" id="pmPrice" min="0" step="0.01" />
             </label>
             <label class="form-field">Stock
               <input type="number" id="pmStock" min="0" step="1" />
             </label>
+            <div class="form-field form-span">Photos
+              <div class="pm-gallery" id="pmGallery"></div>
+              <div class="pm-add-row">
+                <label class="btn btn-ghost pm-upload">📷 Add photos
+                  <input type="file" id="pmFiles" accept="image/*" multiple hidden />
+                </label>
+                <input type="url" id="pmUrl" placeholder="…or paste an image URL" />
+                <button type="button" class="btn btn-ghost" id="pmUrlAdd">Add URL</button>
+              </div>
+            </div>
           </div>
           <p class="form-error" id="pmError" hidden></p>
           <div class="form-actions">
@@ -340,6 +400,37 @@ function openProductModal(index) {
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !modal.hidden) closeModal();
     });
+    el("pmFiles").addEventListener("change", async (e) => {
+      const files = [...e.target.files];
+      e.target.value = "";
+      for (const f of files) {
+        if (f.size > 5 * 1024 * 1024) { showToast("Too large (max 5 MB): " + (f.name || "file")); continue; }
+        try {
+          modalPhotos.push(await fileToPhotoDataUrl(f));
+        } catch {
+          showToast("Could not read " + (f.name || "file"));
+        }
+      }
+      paintPmGallery();
+    });
+    el("pmUrlAdd").addEventListener("click", () => {
+      const url = el("pmUrl").value.trim();
+      if (!/^(https?:\/\/|data:image\/)/.test(url)) {
+        el("pmError").textContent = "Enter a valid image URL (https://…).";
+        el("pmError").hidden = false;
+        return;
+      }
+      modalPhotos.push(url);
+      el("pmUrl").value = "";
+      el("pmError").hidden = true;
+      paintPmGallery();
+    });
+    el("pmGallery").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-rm]");
+      if (!btn) return;
+      modalPhotos.splice(Number(btn.dataset.rm), 1);
+      paintPmGallery();
+    });
     el("pmForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const name = el("pmName").value.trim();
@@ -354,7 +445,7 @@ function openProductModal(index) {
         cat: el("pmCat").value,
         price: Math.round(price * 100) / 100,
         stock,
-        icon: el("pmIcon").value.trim() || "📦",
+        photos: [...modalPhotos],
       };
       if (editingIndex === null) {
         PRODUCTS.push(data);
@@ -374,21 +465,19 @@ function openProductModal(index) {
   if (index === null) {
     el("pmName").value = "";
     el("pmCat").value = "brakes";
-    el("pmIcon").value = "";
     el("pmPrice").value = "";
     el("pmStock").value = "";
   } else {
     const p = PRODUCTS[index];
     el("pmName").value = p.name;
     el("pmCat").value = ["brakes", "engine", "electric", "suspension", "body"].includes(p.cat) ? p.cat : "other";
-    el("pmIcon").value = p.icon || "";
     el("pmPrice").value = p.price;
     el("pmStock").value = p.stock;
   }
+  paintPmGallery();
   modal.hidden = false;
   el("pmName").focus();
 }
-
 /* ---------- Inventory ---------- */
 function renderInventory(root) {
   root.innerHTML = headBlock("Inventory", "Stock levels") + `
@@ -429,6 +518,7 @@ function renderCatalogue(root) {
       )}
     </div>`;
 }
+
 function renderSlider(root) {
   root.innerHTML = headBlock("Slider", "Homepage hero banners") + `
     <div class="card">
