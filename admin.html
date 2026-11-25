@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>lakassGo Admin — Store &amp; inventory centre</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="admin.css" />
+</head>
+<body class="login-page">
+
+<!-- Login -->
+<form class="login-card" id="loginForm">
+  <img src="assets/logo.svg" alt="lakassGo" />
+  <h1>lakassGo Admin</h1>
+  <p>Sign in to the store &amp; inventory centre</p>
+  <p class="login-error" id="loginError" hidden>Wrong username or password.</p>
+  <label>Username
+    <input type="text" id="loginUser" autocomplete="username" required />
+  </label>
+  <label>Password
+    <input type="password" id="loginPass" autocomplete="current-password" required />
+  </label>
+  <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+  <p class="login-note">Authorized staff only &bull; All actions are logged</p>
+</form>
+
+<!-- App -->
+<div class="app" id="app" hidden>
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand">
+      <img src="assets/logo.svg" alt="lakassGo" />
+      <strong>Store &amp; inventory centre<small>lakassGo admin</small></strong>
+    </div>
+    <nav class="side-nav" id="sideNav">
+      <button class="side-item active" data-view="dashboard"><span>🏠</span>Dashboard</button>
+      <button class="side-item" data-view="orders"><span>🛍️</span>Orders &amp; fulfillment</button>
+      <button class="side-item" data-view="delivery"><span>🚚</span>Delivery</button>
+      <button class="side-item" data-view="chat"><span>💬</span>Chat</button>
+      <button class="side-item" data-view="products"><span>📦</span>Product catalog</button>
+      <button class="side-item" data-view="inventory"><span>🏷️</span>Inventory</button>
+      <button class="side-item" data-view="catalogue"><span>📄</span>Catalogue builder</button>
+      <button class="side-item" data-view="slider"><span>🖼️</span>Home slider</button>
+      <button class="side-item" data-view="reporting"><span>📈</span>Reporting</button>
+      <button class="side-item" data-view="marketing"><span>📢</span>Marketing</button>
+      <button class="side-item" data-view="channels"><span>🔖</span>Sales channels</button>
+      <button class="side-item" data-view="gshopping"><span>🛒</span>Google Shopping</button>
+      <button class="side-item" data-view="feed"><span>🔄</span>Daily catalogue feed</button>
+      <button class="side-item" data-view="intelligence"><span>🧠</span>Intelligence</button>
+      <button class="side-item" data-view="strategy"><span>⚙️</span>360 Strategy Engine</button>
+      <button class="side-item" data-view="finance"><span>💵</span>Finance</button>
+      <button class="side-item" data-view="rpay"><span>💳</span>Rpay</button>
+      <button class="side-item" data-view="procurement"><span>📋</span>Procurement</button>
+      <button class="side-item" data-view="store"><span>🌐</span>Public store</button>
+    </nav>
+    <div class="side-foot">v1.0 &bull; © <span id="year"></span> lakassGo</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn" aria-label="Menu">≡</button>
+        <span class="conn"><span class="conn-dot"></span>Database connected</span>
+      </div>
+      <div class="topbar-right">
+        <span class="top-btn manage-wrap" id="manageBtn">🏪 Main store (Casablanca) ▾</span>
+        <select class="top-btn" id="langSel">
+          <option>🇬🇧 EN</option>
+          <option>🇫🇷 FR</option>
+          <option>🇲🇦 AR</option>
+        </select>
+        <span class="profile top-btn">
+          <span class="avatar">A</span>
+          <span class="p-name">Admin<small>Administrator</small></span>
+        </span>
+        <button class="signout" id="signOutBtn">Sign out ⎋</button>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- Dashboard -->
+      <section class="view" id="view-dashboard">
+        <div class="view-head">
+          <div>
+            <h1>Dashboard</h1>
+            <p>Storefront performance at a glance</p>
+          </div>
+          <div class="head-tools">
+            <select id="rangeSel">
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="365">Last 365 days</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="card stat-card stat-green">
+            <div class="stat-label">Sessions</div>
+            <div class="stat-value" id="stSessions">955</div>
+            <div class="stat-delta up">↑ 87.7% vs previous</div>
+          </div>
+          <div class="card stat-card stat-blue">
+            <div class="stat-label">Page views</div>
+            <div class="stat-value" id="stViews">1,111</div>
+            <div class="stat-note" id="stViewsNote">12 pages per session</div>
+          </div>
+          <div class="card stat-card stat-dark">
+            <div class="stat-label">Conversion</div>
+            <div class="stat-value" id="stConv">0.2%</div>
+            <div class="stat-note" id="stConvNote">2 sessions that ordered</div>
+          </div>
+          <div class="card stat-card stat-red">
+            <div class="stat-label">Revenue</div>
+            <div class="stat-value" id="stRev">$ 0.00</div>
+            <div class="stat-delta down">↓ 100% vs previous</div>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <h2>Sessions by day</h2>
+          <p class="card-sub">Unique visits to the storefront per day</p>
+          <div class="bar-chart" id="barChart"></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><div><h2>Top pages</h2><p class="card-sub">Most viewed storefront pages</p></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Page</th><th>Views</th><th>Visitors</th></tr></thead>
+                <tbody>
+                  <tr><td class="cell-strong">/</td><td class="mono">412</td><td class="mono">386</td></tr>
+                  <tr><td class="cell-strong">/category/brakes</td><td class="mono">233</td><td class="mono">201</td></tr>
+                  <tr><td class="cell-strong">/product/front-ceramic-brake-pad-set</td><td class="mono">187</td><td class="mono">164</td></tr>
+                  <tr><td class="cell-strong">/category/tires-wheels</td><td class="mono">146</td><td class="mono">133</td></tr>
+                  <tr><td class="cell-strong">/bestsellers</td><td class="mono">133</td><td class="mono">118</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h2>Traffic sources</h2><p class="card-sub">Where sessions come from</p></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Source</th><th>Sessions</th><th>Share</th></tr></thead>
+                <tbody>
+                  <tr><td class="cell-strong">Direct / none</td><td class="mono">331</td><td class="mono">34.7%</td></tr>
+                  <tr><td class="cell-strong">Google search</td><td class="mono">287</td><td class="mono">30.1%</td></tr>
+                  <tr><td class="cell-strong">Instagram</td><td class="mono">164</td><td class="mono">17.2%</td></tr>
+                  <tr><td class="cell-strong">WhatsApp</td><td class="mono">118</td><td class="mono">12.4%</td></tr>
+                  <tr><td class="cell-strong">Meta Ads</td><td class="mono">55</td><td class="mono">5.8%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dynamic views (rendered by admin.js) -->
+      <section class="view" id="view-orders" hidden></section>
+      <section class="view" id="view-delivery" hidden></section>
+      <section class="view" id="view-chat" hidden></section>
+      <section class="view" id="view-products" hidden></section>
+      <section class="view" id="view-inventory" hidden></section>
+      <section class="view" id="view-catalogue" hidden></section>
+      <section class="view" id="view-slider" hidden></section>
+      <section class="view" id="view-reporting" hidden></section>
+      <section class="view" id="view-marketing" hidden></section>
+      <section class="view" id="view-channels" hidden></section>
+      <section class="view" id="view-gshopping" hidden></section>
+      <section class="view" id="view-feed" hidden></section>
+      <section class="view" id="view-intelligence" hidden></section>
+      <section class="view" id="view-strategy" hidden></section>
+      <section class="view" id="view-finance" hidden></section>
+      <section class="view" id="view-rpay" hidden></section>
+      <section class="view" id="view-procurement" hidden></section>
+      <section class="view" id="view-store" hidden></section>
+
+    </main>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>
