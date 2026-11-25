@@ -5,6 +5,7 @@
 const el = (id) => document.getElementById(id);
 const $ = (sel, root = document) => root.querySelector(sel);
 const money = (n) => "$ " + n.toFixed(2);
+
 function table(headers, rowsHtml) {
   return `
     <div class="table-wrap">
@@ -17,27 +18,31 @@ function table(headers, rowsHtml) {
 function pill(text, color) {
   return `<span class="pill pill-${color}">${text}</span>`;
 }
+const headBlock = (title, sub) => `
+  <div class="view-head"><div><h1>${title}</h1><p>${sub}</p></div></div>`;
 
 /* ---------- Auth ---------- */
 const ADMIN_USER = "admin";
 const ADMIN_PASS = "LkG-2025-Admin!";
 const session = {
-  get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { sessionStorage.setItem(k, v); } catch { /* ignore */ } },
-  clear(k) { try { sessionStorage.removeItem(k); } catch { /* ignore */ } },
+  get() { try { return sessionStorage.getItem("lkg_admin_session"); } catch { return null; } },
+  set() { try { sessionStorage.setItem("lkg_admin_session", "1"); } catch { /* ignore */ } },
+  clear() { try { sessionStorage.removeItem("lkg_admin_session"); } catch { /* ignore */ } },
 };
 
 function showLogin() {
-  el("login").hidden = false;
+  el("loginForm").hidden = false;
   el("app").hidden = true;
+  document.body.classList.add("login-page");
 }
 function showApp() {
-  el("login").hidden = true;
+  el("loginForm").hidden = true;
   el("app").hidden = false;
-  renderView("dashboard");
+  document.body.classList.remove("login-page");
+  switchView("dashboard");
 }
 function initAuth() {
-  if (session.get("lkg_admin_session") === "1") showApp();
+  if (session.get() === "1") showApp();
   el("loginForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const u = el("loginUser").value.trim();
@@ -45,38 +50,40 @@ function initAuth() {
     if (u === ADMIN_USER && p === ADMIN_PASS) {
       el("loginError").hidden = true;
       el("loginPass").value = "";
-      session.set("lkg_admin_session", "1");
+      session.set();
       showApp();
     } else {
       el("loginError").hidden = false;
     }
   });
   el("signOutBtn").addEventListener("click", () => {
-    session.clear("lkg_admin_session");
+    session.clear();
+    el("loginUser").value = "";
     showLogin();
   });
 }
 
 /* ---------- Navigation ---------- */
+const RENDERED = new Set();
 function switchView(name) {
-  document.querySelectorAll("[data-view]").forEach((b) => {
+  document.querySelectorAll(".side-item").forEach((b) => {
     const active = b.dataset.view === name;
     b.classList.toggle("active", active);
     b.setAttribute("aria-current", active ? "page" : "false");
   });
   document.querySelectorAll(".view").forEach((v) => {
-    v.classList.toggle("active", v.id === "view-" + name);
+    v.hidden = v.id !== "view-" + name;
   });
   if (!RENDERED.has(name)) {
-    renderView(name);
     RENDERED.add(name);
+    renderView(name);
   }
   el("sidebar").classList.remove("open");
 }
 function initNav() {
-  document.querySelectorAll("[data-view]").forEach((btn) => {
-    btn.addEventListener("click", () => switchView(btn.dataset.view));
-  });
+  document.querySelectorAll(".side-item").forEach((btn) =>
+    btn.addEventListener("click", () => switchView(btn.dataset.view))
+  );
   el("menuBtn").addEventListener("click", () => el("sidebar").classList.toggle("open"));
 }
 
@@ -107,6 +114,7 @@ const SHIPMENTS = [
   { id: "TRK-77001", order: "#LKG-1038", carrier: "DHL", city: "Tangier", status: "delivered" },
   { id: "TRK-76996", order: "#LKG-1037", carrier: "Amana Express", city: "Fes", status: "delayed" },
 ];
+const STATUS_STYLES = { "in transit": "blue", delivered: "green", delayed: "red" };
 const CHATS = [
   { name: "Yassine B.", topic: "Does this pads set fit a Clio 4?", time: "2 min ago", unread: true },
   { name: "Salma E.", topic: "Can I return the mirror if it doesn't match?", time: "18 min ago", unread: true },
@@ -137,8 +145,7 @@ const DATA_RANGES = {
   base: [96, 124, 141, 118, 152, 189, 135],
 };
 function renderDashboard() {
-  const root = el("view-dashboard");
-  const bars = DATA_RANGES.base
+  el("barChart").innerHTML = DATA_RANGES.base
     .map((v, i) => `
       <div class="bar-col">
         <div class="bar-tip">${v} sessions</div>
@@ -146,68 +153,11 @@ function renderDashboard() {
         <span class="bar-label">${DATA_RANGES.labels[i]}</span>
       </div>`)
     .join("");
-  root.innerHTML = `
-    <div class="view-head">
-      <div><h1>Dashboard</h1><p>Store activity overview</p></div>
-      <select class="select" id="rangeSel" aria-label="Time range">
-        <option value="7" selected>Last 7 days</option>
-        <option value="30">Last 30 days</option>
-        <option value="90">Last 90 days</option>
-        <option value="365">Last 365 days</option>
-      </select>
-    </div>
-    <div class="stat-grid">
-      <div class="card stat-card stat-green"><div class="stat-label">Sessions</div><div class="stat-value" id="stSessions">955</div><div class="stat-delta up">↑ 87.7%</div><div class="stat-note" id="stSessionsNote">vs previous period</div></div>
-      <div class="card stat-card stat-blue"><div class="stat-label">Page views</div><div class="stat-value" id="stViews">1,111</div><div class="stat-delta up">↑ 61.4%</div><div class="stat-note" id="stViewsNote">vs previous period</div></div>
-      <div class="card stat-card stat-dark"><div class="stat-label">Conversion rate</div><div class="stat-value" id="stConv">0.2%</div><div class="stat-delta down">↓ 0.1 pts</div><div class="stat-note" id="stConvNote">0 sessions that ordered</div></div>
-      <div class="card stat-card stat-red"><div class="stat-label">Revenue</div><div class="stat-value" id="stRev">$ 0.00</div><div class="stat-delta down">↓ 100%</div><div class="stat-note" id="stRevNote">no orders in period</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div><h2>Sessions by day</h2><p class="card-sub">Last 7 days</p></div></div>
-      <div class="bars" id="barChart">${bars}</div>
-    </div>
-    <div class="two-col">
-      <div class="card">
-        <div class="card-head"><div><h2>Top pages</h2><p class="card-sub">Most viewed pages</p></div></div>
-        ${table(
-          ["Page", "Views", "Visitors"],
-          `
-            <tr><td class="cell-strong">index.html</td><td class="mono">812</td><td class="mono">431</td></tr>
-            <tr><td class="cell-strong">/#brakes</td><td class="mono">204</td><td class="mono">133</td></tr>
-            <tr><td class="cell-strong">/#engine</td><td class="mono">95</td><td class="mono">61</td></tr>
-          `
-        )}
-      </div>
-      <div class="card">
-        <div class="card-head"><div><h2>Traffic sources</h2><p class="card-sub">Where visitors come from</p></div></div>
-        ${table(
-          ["Source", "Sessions", "Share"],
-          `
-            <tr><td class="cell-strong">Direct / none</td><td class="mono">388</td><td class="mono">40.6%</td></tr>
-            <tr><td class="cell-strong">facebook.com</td><td class="mono">241</td><td class="mono">25.2%</td></tr>
-            <tr><td class="cell-strong">instagram.com</td><td class="mono">133</td><td class="mono">13.9%</td></tr>
-          `
-        )}
-      </div>
-    </div>`;
-  el("rangeSel").addEventListener("change", (e) => {
-    const days = Number(e.target.value);
-    const scale = days / 7;
-    const total = Math.round(DATA_RANGES.base.reduce((s, v) => s + v, 0) * scale);
-    el("stSessions").textContent = total.toLocaleString("en-US");
-    el("stViews").textContent = (total * 12).toLocaleString("en-US");
-    el("stViewsNote").textContent = "12 pages per session";
-    const ordered = Math.max(1, Math.round(total * 0.002));
-    el("stConv").textContent = "0.2%";
-    el("stConvNote").textContent = ordered + " sessions that ordered";
-    el("stRev").textContent = "$ " + (ordered * 29.74).toFixed(2);
-  });
 }
 
 /* ---------- Orders ---------- */
 function renderOrders(root) {
-  root.innerHTML = headBlock("Orders", "Recent customer orders");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Orders", "Recent customer orders") + `
     <div class="card">
       <div class="card-head"><div><h2>All orders</h2><p class="card-sub">${ORDERS.length} orders</p></div>
       <button class="btn btn-primary" id="newOrderBtn">＋ New order</button></div>
@@ -226,40 +176,36 @@ function renderOrders(root) {
             </tr>`;
         }).join("")
       )}
-    </div>`);
+    </div>`;
   el("newOrderBtn").addEventListener("click", () => showToast("New order form (demo)"));
   root.querySelectorAll("[data-act]").forEach((b) =>
-    b.addEventListener("click", () => showToast(b.dataset.act === "view" ? "Order details (demo)" : "Invoice (demo)"))
+    b.addEventListener("click", () =>
+      showToast(b.dataset.act === "view" ? "Order details (demo)" : "Invoice (demo)"))
   );
 }
 
 /* ---------- Delivery ---------- */
 function renderDelivery(root) {
-  root.innerHTML = headBlock("Delivery", "Shipments and couriers");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Delivery", "Shipments and couriers") + `
     <div class="card">
       <div class="card-head"><div><h2>Active shipments</h2><p class="card-sub">Live tracking</p></div></div>
       ${table(
         ["Tracking", "Order", "Carrier", "City", "Status"],
-        SHIPMENTS.map((s) => {
-          const map = { "in transit": "blue", delivered: "green", delayed: "red" };
-          return `
-            <tr>
-              <td class="mono cell-strong">${s.id}</td>
-              <td class="mono cell-muted">${s.order}</td>
-              <td class="cell-strong">${s.carrier}</td>
-              <td class="cell-muted">${s.city}</td>
-              <td>${pill(s.status, map[s.status])}</td>
-            </tr>`;
-        }).join("")
+        SHIPMENTS.map((s) => `
+          <tr>
+            <td class="mono cell-strong">${s.id}</td>
+            <td class="mono cell-muted">${s.order}</td>
+            <td class="cell-strong">${s.carrier}</td>
+            <td class="cell-muted">${s.city}</td>
+            <td>${pill(s.status, STATUS_STYLES[s.status])}</td>
+          </tr>`).join("")
       )}
-    </div>`);
+    </div>`;
 }
 
 /* ---------- Chat ---------- */
 function renderChat(root) {
-  root.innerHTML = headBlock("Chat", "Customer messages");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Chat", "Customer messages") + `
     <div class="card">
       <div class="card-head"><div><h2>Inbox</h2><p class="card-sub">${CHATS.filter((c) => c.unread).length} unread</p></div></div>
       ${table(
@@ -272,14 +218,15 @@ function renderChat(root) {
             <td><button class="btn btn-ghost" data-act="reply">Reply</button></td>
           </tr>`).join("")
       )}
-    </div>`);
-  root.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => showToast("Chat opened (demo)")));
+    </div>`;
+  root.querySelectorAll("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => showToast("Chat opened (demo)"))
+  );
 }
 
 /* ---------- Products ---------- */
 function renderProducts(root) {
-  root.innerHTML = headBlock("Products", "Catalog you sell");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Products", "Catalog you sell") + `
     <div class="card">
       <div class="card-head"><div><h2>All products</h2><p class="card-sub">${PRODUCTS.length} items</p></div>
       <button class="btn btn-primary" id="newProductBtn">＋ Add product</button></div>
@@ -294,17 +241,17 @@ function renderProducts(root) {
             <td><button class="btn btn-ghost" data-act="edit">Edit</button> <button class="btn btn-ghost" data-act="del">Delete</button></td>
           </tr>`).join("")
       )}
-    </div>`);
+    </div>`;
   el("newProductBtn").addEventListener("click", () => showToast("Product editor (demo)"));
   root.querySelectorAll("[data-act]").forEach((b) =>
-    b.addEventListener("click", () => showToast(b.dataset.act === "edit" ? "Edit product (demo)" : "Delete product (demo)"))
+    b.addEventListener("click", () =>
+      showToast(b.dataset.act === "edit" ? "Edit product (demo)" : "Delete product (demo)"))
   );
 }
 
 /* ---------- Inventory ---------- */
 function renderInventory(root) {
-  root.innerHTML = headBlock("Inventory", "Stock levels");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Inventory", "Stock levels") + `
     <div class="card">
       <div class="card-head"><div><h2>Stock levels</h2><p class="card-sub">Low stock highlights &lt; 10 units</p></div></div>
       ${table(
@@ -316,18 +263,17 @@ function renderInventory(root) {
             <tr>
               <td class="cell-strong">${p.name}</td>
               <td class="mono">${p.stock}</td>
-              <td><div class="meter"><div class="meter-fill ${low ? "low" : ""}" style="width:${pct}%"></div></div></td>
+              <td><div class="progress"><span style="width:${pct}%"></span></div></td>
               <td>${pill(low ? "low stock" : "healthy", low ? "red" : "green")}</td>
             </tr>`;
         }).join("")
       )}
-    </div>`);
+    </div>`;
 }
 
 /* ---------- Catalogue / Slider / Reporting / Marketing ---------- */
 function renderCatalogue(root) {
-  root.innerHTML = headBlock("Catalogue", "Storefront product display");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Catalogue", "Storefront product display") + `
     <div class="card">
       <div class="card-head"><div><h2>Catalogue status</h2><p class="card-sub">Products visible on the storefront</p></div>
       <button class="btn btn-ghost">↻ Rebuild catalogue</button></div>
@@ -341,12 +287,10 @@ function renderCatalogue(root) {
           <tr><td class="cell-strong">Body</td><td class="mono">1</td><td>${pill("visible", "green")}</td></tr>
         `
       )}
-    </div>`);
+    </div>`;
 }
-
 function renderSlider(root) {
-  root.innerHTML = headBlock("Slider", "Homepage hero banners");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Slider", "Homepage hero banners") + `
     <div class="card">
       <div class="card-head"><div><h2>Homepage slider</h2><p class="card-sub">Hero banner slides</p></div>
       <button class="btn btn-primary" id="newSlideBtn">＋ Add slide</button></div>
@@ -358,14 +302,15 @@ function renderSlider(root) {
           <tr><td class="cell-strong">Slide 3</td><td class="cell-muted">New: batteries in stock</td><td class="mono">3</td><td>${pill("hidden", "gray")}</td><td><button class="btn btn-ghost" data-act="edit">Edit</button></td></tr>
         `
       )}
-    </div>`);
+    </div>`;
   el("newSlideBtn").addEventListener("click", () => showToast("Slide editor (demo)"));
-  root.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => showToast("Edit slide (demo)")));
+  root.querySelectorAll("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => showToast("Edit slide (demo)"))
+  );
 }
 
 function renderReporting(root) {
-  root.innerHTML = headBlock("Reporting", "Sales reports");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Reporting", "Sales reports") + `
     <div class="stat-grid">
       <div class="card stat-card stat-green"><div class="stat-label">Orders (30d)</div><div class="stat-value">118</div><div class="stat-delta up">↑ 9.2%</div><div class="stat-note">vs 108 previous</div></div>
       <div class="card stat-card stat-blue"><div class="stat-label">Items sold</div><div class="stat-value">246</div><div class="stat-delta up">↑ 11.7%</div><div class="stat-note">2.1 per order</div></div>
@@ -382,32 +327,30 @@ function renderReporting(root) {
           <tr><td class="cell-strong">Engine</td><td class="mono">22</td><td class="mono cell-strong">$ 486</td></tr>
         `
       )}
-    </div>`);
+    </div>`;
 }
 
 function renderMarketing(root) {
-  root.innerHTML = headBlock("Marketing", "Promo codes and campaigns");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Marketing", "Promo codes and campaigns") + `
     <div class="card">
       <div class="card-head"><div><h2>Promo codes</h2><p class="card-sub">Applied at storefront checkout</p></div>
       <button class="btn btn-primary" id="newCodeBtn">＋ New code</button></div>
       ${table(
         ["Code", "Discount", "Scope", "Used", "State"],
-                `
+        `
           <tr><td class="cell-strong mono">WELCOME10</td><td class="cell-strong">-10%</td><td class="cell-muted">all products</td><td class="mono">23</td><td>${pill("active", "green")}</td></tr>
           <tr><td class="cell-strong mono">BRAKE15</td><td class="cell-strong">-15%</td><td class="cell-muted">brakes category</td><td class="mono">8</td><td>${pill("active", "green")}</td></tr>
           <tr><td class="cell-strong mono">SUMMER25</td><td class="cell-strong">-25%</td><td class="cell-muted">all products</td><td class="mono">0</td><td>${pill("scheduled", "amber")}</td></tr>
           <tr><td class="cell-strong mono">OLD5</td><td class="cell-strong">-5%</td><td class="cell-muted">all products</td><td class="mono">41</td><td>${pill("expired", "gray")}</td></tr>
         `
       )}
-    </div>`);
+    </div>`;
   el("newCodeBtn").addEventListener("click", () => showToast("Promo code editor (demo)"));
 }
 
 /* ---------- Channels / Google Shopping ---------- */
 function renderChannels(root) {
-  root.innerHTML = headBlock("Channels", "Sales channels");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Channels", "Sales channels") + `
     <div class="card">
       <div class="card-head"><div><h2>Connected channels</h2><p class="card-sub">Where your catalog is sold</p></div></div>
       ${table(
@@ -419,12 +362,11 @@ function renderChannels(root) {
           <tr><td class="cell-strong">Google Shopping</td><td>${pill("connected", "green")}</td><td class="mono">14</td><td class="cell-muted">merchant center</td></tr>
         `
       )}
-    </div>`);
+    </div>`;
 }
 
 function renderGshopping(root) {
-  root.innerHTML = headBlock("Google Shopping", "Product feed & Merchant Center");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Google Shopping", "Product feed & Merchant Center") + `
     <div class="card">
       <div class="card-head"><div><h2>Merchant Center sync</h2><p class="card-sub">Feed lakassgo.com/data/products.xml</p></div>
       <button class="btn btn-ghost">↻ Sync now</button></div>
@@ -444,12 +386,11 @@ function renderGshopping(root) {
       <div class="card stat-card stat-blue"><div class="stat-label">Impressions (7d)</div><div class="stat-value">24,318</div><div class="stat-delta up">↑ 31%</div></div>
       <div class="card stat-card stat-dark"><div class="stat-label">Clicks (7d)</div><div class="stat-value">617</div><div class="stat-delta up">↑ 22%</div></div>
       <div class="card stat-card stat-red"><div class="stat-label">Disapprovals</div><div class="stat-value">1</div><div class="stat-note">fix stock or hide</div></div>
-    </div>`);
+    </div>`;
 }
 
 function renderFeed(root) {
-  root.innerHTML = headBlock("Daily catalogue feed", "Automated catalog export to marketplaces");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Daily catalogue feed", "Automated catalog export to marketplaces") + `
     <div class="card">
       <div class="card-head"><div><h2>Run history</h2><p class="card-sub">Last executions</p></div>
       <button class="btn btn-primary" id="runFeedBtn">▶ Run feed now</button></div>
@@ -466,17 +407,16 @@ function renderFeed(root) {
     <ul class="list-clean">
       <li>🔗 <strong>Feed URL:</strong> <span class="mono cell-muted" id="feedUrl">https://www.lakassgo.com/data/products.xml</span>${pill("copy on click", "blue")}</li>
       <li>🕒 <strong>Schedule:</strong> daily 03:00 GMT+1 ${pill("active", "green")}</li>
-    </ul>`);
-  root.querySelector("#runFeedBtn").addEventListener("click", (e) => {
+    </ul>`;
+  el("runFeedBtn").addEventListener("click", (e) => {
     e.target.textContent = "✓ Feeder queued (demo)";
     e.target.disabled = true;
   });
-  root.querySelector("#feedUrl").addEventListener("click", () => showToast("Feed URL copied (demo)"));
+  el("feedUrl").addEventListener("click", () => showToast("Feed URL copied (demo)"));
 }
 
 function renderIntelligence(root) {
-  root.innerHTML = headBlock("Intelligence", "Automatic insights from store data");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Intelligence", "Automatic insights from store data") + `
     <div class="tile-grid">
       <div class="card tile"><span class="tile-ico">🔥</span><div><h3>Trending: brake pads</h3><p>Searches ↑ 47% this week — consider extra stock</p></div>${pill("opportunity", "green")}</div>
       <div class="card tile"><span class="tile-ico">⚠️</span><div><h3>Stock risk: shock absorbers</h3><p>6 left • weekly sales ×1.8 — restock now</p></div>${pill("urgent", "red")}</div>
@@ -484,12 +424,11 @@ function renderIntelligence(root) {
       <div class="card tile"><span class="tile-ico">🏆</span><div><h3>Best bundle: pads + discs</h3><p>Bought together in 62% of brake orders</p></div>${pill("bundle idea", "blue")}</div>
       <div class="card tile"><span class="tile-ico">📍</span><div><h3>Demand zone: Casa → Rabat</h3><p>68% of orders — beta delivery lane proposed</p></div>${pill("ops", "blue")}</div>
       <div class="card tile"><span class="tile-ico">💰</span><div><h3>Margin watch: batteries</h3><p>Supplier price ↑ 6% — margin now 31%</p></div>${pill("monitor", "amber")}</div>
-    </div>`);
+    </div>`;
 }
 
 function renderStrategy(root) {
-  root.innerHTML = headBlock("360 Strategy Engine", "Suggested actions from the strategy engine");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("360 Strategy Engine", "Suggested actions from the strategy engine") + `
     <div class="card">
       <div class="card-head"><div><h2>This week's strategy queue</h2><p class="card-sub">Accept or dismiss suggestions</p></div></div>
       ${table(
@@ -503,15 +442,14 @@ function renderStrategy(root) {
             <td><button class="btn btn-ghost" data-act="accept">Accept</button> <button class="btn btn-ghost" data-act="dismiss">Dismiss</button></td></tr>
         `
       )}
-    </div>`);
+    </div>`;
   root.querySelectorAll("[data-act]").forEach((b) =>
     b.addEventListener("click", () => (b.textContent = "✓ done (demo)"))
   );
 }
 
 function renderFinance(root) {
-  root.innerHTML = headBlock("Finance", "Revenue, costs and payouts");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Finance", "Revenue, costs and payouts") + `
     <div class="stat-grid">
       <div class="card stat-card stat-green"><div class="stat-label">Revenue (30d)</div><div class="stat-value">$ 1,844</div><div class="stat-delta up">↑ 12.4%</div></div>
       <div class="card stat-card stat-blue"><div class="stat-label">Cost of goods</div><div class="stat-value">$ 1,102</div><div class="stat-note">59.8% of revenue</div></div>
@@ -528,12 +466,11 @@ function renderFinance(root) {
           <tr><td class="cell-strong">PO-1107</td><td class="cell-muted">Nov 3 – Nov 9</td><td class="mono cell-strong">$ 352</td><td class="cell-muted">Rpay wallet</td><td>${pill("paid", "green")}</td></tr>
         `
       )}
-    </div>`);
+    </div>`;
 }
 
 function renderRpay(root) {
-  root.innerHTML = headBlock("Rpay", "Online payment transactions");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Rpay", "Online payment transactions") + `
     <div class="card">
       <div class="card-head"><div><h2>Transactions</h2><p class="card-sub">Card &amp; wallet payments via Rpay</p></div></div>
       ${table(
@@ -552,15 +489,14 @@ function renderRpay(root) {
       <div class="card stat-card stat-blue"><div class="stat-label">Auth rate</div><div class="stat-value">94%</div><div class="stat-note">of attempts</div></div>
       <div class="card stat-card stat-dark"><div class="stat-label">Chargebacks</div><div class="stat-value">0</div><div class="stat-note">nothing open</div></div>
       <div class="card stat-card stat-red"><div class="stat-label">Fees (30d)</div><div class="stat-value">$ 27.90</div><div class="stat-note">1.9% + fixed</div></div>
-    </div>`);
+    </div>`;
 }
 
 function renderProcurement(root) {
-  root.innerHTML = headBlock("Procurement", "Supplier orders and restocks");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Procurement", "Supplier orders and restocks") + `
     <div class="card">
       <div class="card-head"><div><h2>Supplier purchase orders</h2><p class="card-sub">Inbound stock</p></div>
-      <button class="btn btn-primary">＋ New PO</button></div>
+      <button class="btn btn-primary" id="newPoBtn">＋ New PO</button></div>
       ${table(
         ["PO", "Supplier", "Items", "Total", "Status"],
         `
@@ -575,12 +511,12 @@ function renderProcurement(root) {
       <li>🏭 <strong>Mecadis SARL</strong> — lead time 4 days, 96% fill rate ${pill("preferred", "green")}</li>
       <li>🏭 <strong>AutoParts Atlas</strong> — lead time 6 days, 89% fill rate ${pill("backup", "gray")}</li>
       <li>🏭 <strong>Batterie Plus</strong> — lead time 3 days, warranty 24 mo ${pill("specialty", "blue")}</li>
-    </ul>`);
+    </ul>`;
+  el("newPoBtn").addEventListener("click", () => showToast("New purchase order (demo)"));
 }
 
 function renderStore(root) {
-  root.innerHTML = headBlock("Public store", "Your live storefront");
-  root.insertAdjacentHTML("beforeend", `
+  root.innerHTML = headBlock("Public store", "Your live storefront") + `
     <div class="card card-pad">
       <h2>lakassGo storefront</h2>
       <p class="card-sub">Opens the public site in a new tab</p>
@@ -594,13 +530,8 @@ function renderStore(root) {
       <div class="card stat-card stat-blue"><div class="stat-label">Uptime (30d)</div><div class="stat-value">99.98%</div><div class="stat-note">static hosting</div></div>
       <div class="card stat-card stat-dark"><div class="stat-label">Catalog on site</div><div class="stat-value">14</div><div class="stat-note">parts live</div></div>
       <div class="card stat-card stat-red"><div class="stat-label">Incidents</div><div class="stat-value">0</div><div class="stat-note">nothing open</div></div>
-    </div>`);
+    </div>`;
 }
-
-const headBlock = (title, sub) => `
-  <div class="view-head">
-    <div><h1>${title}</h1><p>${sub}</p></div>
-  </div>`;
 
 /* ---------- Render dispatch ---------- */
 const RENDERERS = {
@@ -638,7 +569,7 @@ function showToast(msg) {
     t = document.createElement("div");
     t.id = "toast";
     t.style.cssText =
-      "position:fixed;bottom:24px;inset-inline-start:50%;transform:translateX(-50%);" +
+      "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
       "background:#2c3e50;color:#fff;padding:11px 22px;border-radius:999px;font-size:13.5px;" +
       "font-weight:700;z-index:200;box-shadow:0 12px 30px rgba(21,33,46,.3);";
     document.body.appendChild(t);
